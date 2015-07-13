@@ -33,7 +33,7 @@ namespace EasyCarryRyze
         }
 
         // ReSharper disable once InconsistentNaming
-        private static readonly Dictionary<Spells, Spell> spells = new Dictionary<Spells, Spell>
+        public static readonly Dictionary<Spells, Spell> spells = new Dictionary<Spells, Spell>
         {
             {Spells.Q, new Spell(SpellSlot.Q, 865)},
             {Spells.W, new Spell(SpellSlot.W, 585)},
@@ -155,30 +155,45 @@ namespace EasyCarryRyze
                     spells[Spells.R].Cast();
             }
 
+            if (Queuer.Queue.Count > 0) return;
+
             if (_passivecharged)
             {
                 if (useQ && spells[Spells.Q].CanCast(target)) spells[Spells.Q].Cast(target.ServerPosition);
                 else if (useW && spells[Spells.W].CanCast(target) && !spells[Spells.Q].IsReady()) spells[Spells.W].CastOnUnit(target);
                 else if (useE && spells[Spells.E].IsReady() && !spells[Spells.Q].IsReady()) spells[Spells.E].CastOnUnit(target);
             }
-            else if (_stacks == 4)
+            else switch (_stacks)
             {
-                if (spells[Spells.R].IsReady() && useR)
-                {
-                    spells[Spells.R].Cast();
-                }
-                else
-                {
-                    if (useQ && spells[Spells.Q].IsReady() && spells[Spells.Q].GetPrediction(target).Hitchance >= CustomHitChance) spells[Spells.Q].Cast(target.Position);
-                    if (useE && spells[Spells.E].CanCast(target)) spells[Spells.E].Cast(target);
-                    if (useW && spells[Spells.W].CanCast(target)) spells[Spells.W].Cast(target);
-                }
-            }
-            else if (_stacks < 4)
-            {
-                if (useQ && spells[Spells.Q].IsReady() && spells[Spells.Q].GetPrediction(target).Hitchance >= CustomHitChance) spells[Spells.Q].Cast(target.Position);
-                if (useE && spells[Spells.E].CanCast(target)) spells[Spells.E].Cast(target);
-                if (useW && spells[Spells.W].CanCast(target)) spells[Spells.W].Cast(target);
+                case 4:
+                    if (spells[Spells.R].IsReady() && useR)
+                    {
+                        spells[Spells.R].Cast();
+                    }
+                    else
+                    {
+                        if (useQ && spells[Spells.Q].IsReady() && spells[Spells.Q].GetPrediction(target).Hitchance >= CustomHitChance) spells[Spells.Q].Cast(target.Position);
+                        if (useE && spells[Spells.E].CanCast(target)) spells[Spells.E].Cast(target);
+                        if (useW && spells[Spells.W].CanCast(target)) spells[Spells.W].Cast(target);
+                    }
+                    break;
+                case 3: //TripleSnare
+                    for (var i = 0; i < 3; i++)
+                    {
+                        Queuer.Add(Spells.W);
+                        Queuer.Add(Spells.Q);
+                        Queuer.Add(Spells.E);
+                        Queuer.Add(Spells.Q);
+                    }                   
+                    break;
+                default:
+                    if (_stacks < 4)
+                    {
+                        if (useQ && spells[Spells.Q].IsReady() && spells[Spells.Q].GetPrediction(target).Hitchance >= CustomHitChance) spells[Spells.Q].Cast(target.Position);
+                        if (useE && spells[Spells.E].CanCast(target)) spells[Spells.E].Cast(target);
+                        if (useW && spells[Spells.W].CanCast(target)) spells[Spells.W].Cast(target);
+                    }
+                    break;
             }
         }
 
@@ -349,6 +364,21 @@ namespace EasyCarryRyze
         private static void Obj_AI_Base_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args)
         {
             if (!sender.IsMe) return;
+            switch (args.SData.Name)
+            {
+                case "RyzeQ":
+                    Queuer.Remove(Spells.Q);
+                    break;
+                case "RyzeW":
+                    Queuer.Remove(Spells.W);
+                    break;
+                case "RyzeE":
+                    Queuer.Remove(Spells.E);
+                    break;
+                case "RyzeR":
+                    Queuer.Remove(Spells.R);
+                    break;
+            }
         }
 
         #endregion
@@ -396,7 +426,7 @@ namespace EasyCarryRyze
                 combo.AddItem(new MenuItem("combo.useR", "Use R")).SetValue(true);
                 var rmenu = combo.AddSubMenu(new Menu("R Settings", "combo.rmenu"));
                 {
-                    rmenu.AddItem(new MenuItem("rmenu.health", "Use R if HP drops below %")).SetValue(new Slider(30, 0, 100));
+                    rmenu.AddItem(new MenuItem("rmenu.health", "Use R if HP drops below %")).SetValue(new Slider(30));
                 }
             }
             _config.AddSubMenu(combo);

@@ -13,7 +13,7 @@ using ItemData = LeagueSharp.Common.Data.ItemData;
 
 #endregion
 
-//TODO: ResManager, Auto Spell Lvl Up, Item Manager, Notifications
+//TODO: ResManager, Auto Spell Lvl Up, Item Manager
 
 namespace EasyCarryKatarina
 {
@@ -502,7 +502,7 @@ namespace EasyCarryKatarina
             {
                 combo.AddItem(new MenuItem("combo.qemode", "QE Mode")).SetValue(new StringList(new[] {"Q -> E", "E -> Q"}));
                 combo.AddItem(new MenuItem("combo.useItems", "Use Items")).SetValue(true);
-                combo.AddItem(new MenuItem("combo.waitforq", "Wait for Q to land")).SetValue(true);
+                //combo.AddItem(new MenuItem("combo.waitforq", "Wait for Q to land")).SetValue(true);
                 combo.AddItem(new MenuItem("combo.useQ", "Use Q")).SetValue(true);
                 combo.AddItem(new MenuItem("combo.useW", "Use W")).SetValue(true);
                 combo.AddItem(new MenuItem("combo.useE", "Use E")).SetValue(true);
@@ -510,17 +510,17 @@ namespace EasyCarryKatarina
             }
             _config.AddSubMenu(combo);
 
-            var killsteal = new Menu("[Katarina] Killsteal Settings", "katarina.killsteal");
-            {
-                killsteal.AddItem(new MenuItem("killsteal.enabled", "Killsteal Enabled")).SetValue(true);
-                killsteal.AddItem(new MenuItem("killsteal.useWardJump", "Use WardJump to Killsteal")).SetValue(true);
-                killsteal.AddItem(new MenuItem("killsteal.useQ", "Use Q")).SetValue(true);
-                killsteal.AddItem(new MenuItem("killsteal.useW", "Use W")).SetValue(true);
-                killsteal.AddItem(new MenuItem("killsteal.useE", "Use E")).SetValue(true);
-                killsteal.AddItem(new MenuItem("killsteal.useIgnite", "Use Ignite")).SetValue(true);
-                killsteal.AddItem(new MenuItem("killsteal.useItems", "Use Items")).SetValue(true);
-            }
-            _config.AddSubMenu(killsteal);
+            //var killsteal = new Menu("[Katarina] Killsteal Settings", "katarina.killsteal");
+            //{
+            //    killsteal.AddItem(new MenuItem("killsteal.enabled", "Killsteal Enabled")).SetValue(true);
+            //    killsteal.AddItem(new MenuItem("killsteal.useWardJump", "Use WardJump to Killsteal")).SetValue(true);
+            //    killsteal.AddItem(new MenuItem("killsteal.useQ", "Use Q")).SetValue(true);
+            //    killsteal.AddItem(new MenuItem("killsteal.useW", "Use W")).SetValue(true);
+            //    killsteal.AddItem(new MenuItem("killsteal.useE", "Use E")).SetValue(true);
+            //    killsteal.AddItem(new MenuItem("killsteal.useIgnite", "Use Ignite")).SetValue(true);
+            //    killsteal.AddItem(new MenuItem("killsteal.useItems", "Use Items")).SetValue(true);
+            //}
+            //_config.AddSubMenu(killsteal);
 
             var harass = new Menu("[Katarina] Harass Settings", "katarina.harass");
             {
@@ -578,8 +578,8 @@ namespace EasyCarryKatarina
             var legit = new Menu("[Katarina] Legit Menu", "katarina.legit");
             {
                 legit.AddItem(new MenuItem("legit.enabled", "Enable Legit Mode")).SetValue(true);
-                legit.AddItem(new MenuItem("legit.delayQ", "Q Delay")).SetValue(new Slider(0, 0, 1000));
-                legit.AddItem(new MenuItem("legit.delayW", "W Delay")).SetValue(new Slider(0, 0, 1000));
+                //legit.AddItem(new MenuItem("legit.delayQ", "Q Delay")).SetValue(new Slider(0, 0, 1000));
+                //legit.AddItem(new MenuItem("legit.delayW", "W Delay")).SetValue(new Slider(0, 0, 1000));
                 legit.AddItem(new MenuItem("legit.delayE", "E Delay")).SetValue(new Slider(750, 0, 1000));
             }
             _config.AddSubMenu(legit);
@@ -611,14 +611,14 @@ namespace EasyCarryKatarina
                     DamageIndicator.FillColor = eventArgs.GetNewValue<Circle>().Color;
                 };
 
-            var resmanager = new Menu("[Katarina] Resource Manager", "katarina.resmanager");
-            {
-                resmanager.AddItem(new MenuItem("resmanager.enabled", "Resource Manager Enabled")).SetValue(true);
-                resmanager.AddItem(new MenuItem("resmanager.hp.enable", "HP Pots Enabled")).SetValue(true);
-                resmanager.AddItem(new MenuItem("resmanager.hp.slider", "HP Pots HP %")).SetValue(new Slider(30, 1));
-                resmanager.AddItem(new MenuItem("resmanager.counter", "Counter Ignite & Morde Ult")).SetValue(true);
-            }
-            _config.AddSubMenu(resmanager);
+            //var resmanager = new Menu("[Katarina] Resource Manager", "katarina.resmanager");
+            //{
+            //    resmanager.AddItem(new MenuItem("resmanager.enabled", "Resource Manager Enabled")).SetValue(true);
+            //    resmanager.AddItem(new MenuItem("resmanager.hp.enable", "HP Pots Enabled")).SetValue(true);
+            //    resmanager.AddItem(new MenuItem("resmanager.hp.slider", "HP Pots HP %")).SetValue(new Slider(30, 1));
+            //    resmanager.AddItem(new MenuItem("resmanager.counter", "Counter Ignite & Morde Ult")).SetValue(true);
+            //}
+            //_config.AddSubMenu(resmanager);
 
             var misc = new Menu("[Katarina] Misc Settings", "katarina.misc");
             {
