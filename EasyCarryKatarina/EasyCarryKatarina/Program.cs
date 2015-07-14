@@ -3,7 +3,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using LeagueSharp;
 using LeagueSharp.Common;
@@ -13,8 +12,6 @@ using ItemData = LeagueSharp.Common.Data.ItemData;
 
 #endregion
 
-//TODO: ResManager, Auto Spell Lvl Up, Item Manager
-
 namespace EasyCarryKatarina
 {
     internal class Program
@@ -23,21 +20,10 @@ namespace EasyCarryKatarina
         private static SpellSlot _igniteSlot;
         private static Menu _config;
         private static readonly Obj_AI_Hero Player = ObjectManager.Player;
-        private static bool _qinAir;
         private static bool _rBlock;
         private static int _lastE;
-        private static string _lastspell;
-        private static Vector3 LastWardPos { get; set; }
-        private static int LastPlaced { get; set; }
-
-        internal enum Spells
-        {
-            Q,
-            W,
-            E,
-            R
-        }
-
+        private static Vector3 _lastWardPos;
+        private static int _lastPlaced;
         // ReSharper disable once InconsistentNaming
         private static readonly Dictionary<Spells, Spell> spells = new Dictionary<Spells, Spell>
         {
@@ -46,7 +32,6 @@ namespace EasyCarryKatarina
             {Spells.E, new Spell(SpellSlot.E, 700)},
             {Spells.R, new Spell(SpellSlot.R, 550)}
         };
-
 
         private static void Main(string[] args)
         {
@@ -125,13 +110,21 @@ namespace EasyCarryKatarina
             var killsteal = _config.Item("killsteal.enabled").GetValue<bool>();
             if (killsteal) Killsteal();
 
-            ResourceManager();           
-            
+            ResourceManager();
         }
 
         private static void ResourceManager()
         {
-            
+            var e = _config.Item("resmanager.enabled").GetValue<bool>();
+            if (!e) return;
+            var hp = (Player.MaxHealth/Player.Health)*100;
+            var limit = _config.Item("resmanager.hp.slider").GetValue<Slider>().Value;
+            var counter = _config.Item("resmanager.counter").GetValue<bool>();
+            var potion = ItemData.Health_Potion.GetItem();
+
+            if (!potion.IsOwned(Player) || !potion.IsReady()) return;
+            if (hp < limit || (counter && Player.HasBuff("SummonerIgnite")))
+                Items.UseItem(2003);
         }
 
         private static void Combo()
@@ -147,14 +140,14 @@ namespace EasyCarryKatarina
             var useItems = _config.Item("combo.useItems").GetValue<bool>();
 
             if (Player.CountEnemiesInRange(spells[Spells.R].Range + 50) < 1) _rBlock = false;
-            
-            //TODO: Get Q collision vs. Windwall, if yes, then E first
+
+            //TODO: Auto switch QE mode based on WindWall collision
 
             if (qemode == 0)
             {
                 if (useQ && spells[Spells.Q].CanCast(target))
                     spells[Spells.Q].CastOnUnit(target);
-                if (useE && spells[Spells.E].CanCast(target))
+                if (useE && spells[Spells.E].CanCast(target) && target.HasBuff("KatarinaQMark"))
                     CastE(target);
             }
             else
@@ -211,7 +204,7 @@ namespace EasyCarryKatarina
             }
         }
 
-        private static void Killsteal() 
+        private static void Killsteal()
         {
             var e = HeroManager.Enemies.Where(x => x.IsVisible && x.IsValidTarget());
             var useq = _config.Item("killsteal.useQ").GetValue<bool>();
@@ -236,7 +229,7 @@ namespace EasyCarryKatarina
             {
                 CastE(etarget);
             }
-            
+
             var itarget = objAiHeroes.FirstOrDefault(y => Player.GetSpellDamage(y, _igniteSlot) < y.Health && y.Distance(Player) <= 600);
             if (Player.Spellbook.CanUseSpell(_igniteSlot) == SpellState.Ready && itarget != null)
             {
@@ -310,7 +303,7 @@ namespace EasyCarryKatarina
                 var m = minions.FirstOrDefault(x => spell.IsKillable(x));
                 var e = _config.Item("farm.use" + spell.Slot).GetValue<bool>();
                 if (m == null || !e) return;
-                    spell.CastOnUnit(m);
+                spell.CastOnUnit(m);
             }
         }
 
@@ -364,105 +357,6 @@ namespace EasyCarryKatarina
             }
         }
 
-        #region Ultimate Block & Humanizer
-
-        private static void OnAnimation(GameObject sender, GameObjectPlayAnimationEventArgs args)
-        {
-            if (!sender.IsMe) return;
-            if (args.Animation == "Spell4")
-            {
-                _rBlock = true;
-            }
-            else if (args.Animation == "Run" || args.Animation == "Idle1" || args.Animation == "Attack2" ||
-                     args.Animation == "Attack1")
-            {
-                _rBlock = false;
-            }
-        }
-
-        private static void BeforeAttack(Orbwalking.BeforeAttackEventArgs args)
-        {
-            if (args.Unit.IsMe)
-            {
-                args.Process = !_rBlock;
-            }
-        }
-
-        private static void Obj_AI_Hero_OnIssueOrder(Obj_AI_Base sender, GameObjectIssueOrderEventArgs args)
-        {
-            if (sender.IsMe)
-            {
-                args.Process = !_rBlock;
-            }
-        }
-
-        private static void Obj_AI_Base_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args)
-        {
-            if (!sender.IsMe) return;
-            _lastspell = args.SData.Name;
-            if (args.SData.Name == "KatarinaE") _lastE = Environment.TickCount;
-        }
-
-        #endregion
-
-        #region WardJump
-
-        private static InventorySlot GetBestWardSlot()
-        {
-            var slot = Items.GetWardSlot();
-            return slot == default(InventorySlot) ? null : slot;
-        }
-
-        private static void WardJump()
-        {
-            if (Environment.TickCount <= LastPlaced + 3000 || !spells[Spells.E].IsReady()) return;
-
-            var cursorPos = Game.CursorPos;
-            var myPos = Player.ServerPosition;
-            var delta = cursorPos - myPos;
-
-            delta.Normalize();
-
-            var wardPosition = myPos + delta*(600 - 5);
-            var wardSlot = GetBestWardSlot();
-
-            if (wardSlot == null) return;
-
-            Items.UseItem((int) wardSlot.Id, wardPosition);
-            LastWardPos = wardPosition;
-            LastPlaced = Environment.TickCount;
-        }
-
-        private static void WardJump(Vector2 pos)
-        {
-            if (Environment.TickCount <= LastPlaced + 3000 || !spells[Spells.E].IsReady()) return;
-
-            var wardPosition = pos;
-            var wardSlot = GetBestWardSlot();
-
-            if (wardSlot == null) return;
-
-            Items.UseItem((int)wardSlot.Id, wardPosition);
-            LastWardPos = wardPosition.To3D();
-            LastPlaced = Environment.TickCount;
-        }
-
-        private static void GameObject_OnCreate(GameObject sender, EventArgs args)
-        {
-            var minion = sender as Obj_AI_Minion;
-            if (minion == null || !spells[Spells.E].IsReady() || Environment.TickCount >= LastPlaced + 300)
-                return;
-
-            var ward = minion;
-
-            if (ward.Name.ToLower().Contains("ward") && ward.Distance(LastWardPos) < 500)
-            {
-                spells[Spells.E].CastOnUnit(ward);
-            }
-        }
-
-        #endregion
-
         private static void Drawings(EventArgs args)
         {
             var enabled = _config.Item("drawing.enable").GetValue<bool>();
@@ -502,7 +396,6 @@ namespace EasyCarryKatarina
             {
                 combo.AddItem(new MenuItem("combo.qemode", "QE Mode")).SetValue(new StringList(new[] {"Q -> E", "E -> Q"}));
                 combo.AddItem(new MenuItem("combo.useItems", "Use Items")).SetValue(true);
-                //combo.AddItem(new MenuItem("combo.waitforq", "Wait for Q to land")).SetValue(true);
                 combo.AddItem(new MenuItem("combo.useQ", "Use Q")).SetValue(true);
                 combo.AddItem(new MenuItem("combo.useW", "Use W")).SetValue(true);
                 combo.AddItem(new MenuItem("combo.useE", "Use E")).SetValue(true);
@@ -510,21 +403,20 @@ namespace EasyCarryKatarina
             }
             _config.AddSubMenu(combo);
 
-            //var killsteal = new Menu("[Katarina] Killsteal Settings", "katarina.killsteal");
-            //{
-            //    killsteal.AddItem(new MenuItem("killsteal.enabled", "Killsteal Enabled")).SetValue(true);
-            //    killsteal.AddItem(new MenuItem("killsteal.useWardJump", "Use WardJump to Killsteal")).SetValue(true);
-            //    killsteal.AddItem(new MenuItem("killsteal.useQ", "Use Q")).SetValue(true);
-            //    killsteal.AddItem(new MenuItem("killsteal.useW", "Use W")).SetValue(true);
-            //    killsteal.AddItem(new MenuItem("killsteal.useE", "Use E")).SetValue(true);
-            //    killsteal.AddItem(new MenuItem("killsteal.useIgnite", "Use Ignite")).SetValue(true);
-            //    killsteal.AddItem(new MenuItem("killsteal.useItems", "Use Items")).SetValue(true);
-            //}
-            //_config.AddSubMenu(killsteal);
+            var killsteal = new Menu("[Katarina] Killsteal Settings", "katarina.killsteal");
+            {
+                killsteal.AddItem(new MenuItem("killsteal.enabled", "Killsteal Enabled")).SetValue(true);
+                killsteal.AddItem(new MenuItem("killsteal.useQ", "Use Q")).SetValue(true);
+                killsteal.AddItem(new MenuItem("killsteal.useW", "Use W")).SetValue(true);
+                killsteal.AddItem(new MenuItem("killsteal.useE", "Use E")).SetValue(true);
+                killsteal.AddItem(new MenuItem("killsteal.useIgnite", "Use Ignite")).SetValue(true);
+            }
+            _config.AddSubMenu(killsteal);
 
             var harass = new Menu("[Katarina] Harass Settings", "katarina.harass");
             {
                 harass.AddItem(new MenuItem("harass.mode", "Harass Mode: ").SetValue(new StringList(new[] {"Q only", "Q -> W", "Q -> E -> W"})));
+                harass.AddItem(new MenuItem("placeholder", "======_AutoHarass_======"));
                 harass.AddItem(new MenuItem("autoharass.enabled", "AutoHarass Enabled")).SetValue(new KeyBind("T".ToCharArray()[0], KeyBindType.Toggle));
                 harass.AddItem(new MenuItem("autoharass.useQ", "Use Q")).SetValue(true);
                 harass.AddItem(new MenuItem("autoharass.useW", "Use W")).SetValue(true);
@@ -611,22 +503,19 @@ namespace EasyCarryKatarina
                     DamageIndicator.FillColor = eventArgs.GetNewValue<Circle>().Color;
                 };
 
-            //var resmanager = new Menu("[Katarina] Resource Manager", "katarina.resmanager");
-            //{
-            //    resmanager.AddItem(new MenuItem("resmanager.enabled", "Resource Manager Enabled")).SetValue(true);
-            //    resmanager.AddItem(new MenuItem("resmanager.hp.enable", "HP Pots Enabled")).SetValue(true);
-            //    resmanager.AddItem(new MenuItem("resmanager.hp.slider", "HP Pots HP %")).SetValue(new Slider(30, 1));
-            //    resmanager.AddItem(new MenuItem("resmanager.counter", "Counter Ignite & Morde Ult")).SetValue(true);
-            //}
-            //_config.AddSubMenu(resmanager);
+            var resmanager = new Menu("[Katarina] Resource Manager", "katarina.resmanager");
+            {
+                resmanager.AddItem(new MenuItem("resmanager.enabled", "Resource Manager Enabled")).SetValue(true);
+                resmanager.AddItem(new MenuItem("resmanager.hp.slider", "HP Pots HP %")).SetValue(new Slider(30, 1));
+                resmanager.AddItem(new MenuItem("resmanager.counter", "Counter Ignite & Morde Ult")).SetValue(true);
+            }
+            _config.AddSubMenu(resmanager);
 
             var misc = new Menu("[Katarina] Misc Settings", "katarina.misc");
             {
                 misc.AddItem(new MenuItem("misc.skinchanger.enable", "Use SkinChanger").SetValue(false));
-                misc.AddItem(new MenuItem("misc.skinchanger.id", "Select skin:").SetValue(new StringList(new[] { "Classic", "1", "2" })));
+                misc.AddItem(new MenuItem("misc.skinchanger.id", "Select skin:").SetValue(new StringList(new[] {"Classic", "Mercenary", "Red Card", "Bilgewater", "Kitty Cat", "High Command", "Darude Sandstorm", "Slay Belle", "Warring Kingdoms"})));
             }
-
-            
             _config.AddSubMenu(misc);
 
             _config.AddToMainMenu();
@@ -654,5 +543,111 @@ namespace EasyCarryKatarina
 
             return dmg;
         }
+
+        internal enum Spells
+        {
+            Q,
+            W,
+            E,
+            R
+        }
+
+        #region Ultimate Block & Humanizer
+
+        private static void OnAnimation(GameObject sender, GameObjectPlayAnimationEventArgs args)
+        {
+            if (!sender.IsMe) return;
+            if (args.Animation == "Spell4")
+            {
+                _rBlock = true;
+            }
+            else if (args.Animation == "Run" || args.Animation == "Idle1" || args.Animation == "Attack2" ||
+                     args.Animation == "Attack1")
+            {
+                _rBlock = false;
+            }
+        }
+
+        private static void BeforeAttack(Orbwalking.BeforeAttackEventArgs args)
+        {
+            if (args.Unit.IsMe)
+            {
+                args.Process = !_rBlock;
+            }
+        }
+
+        private static void Obj_AI_Hero_OnIssueOrder(Obj_AI_Base sender, GameObjectIssueOrderEventArgs args)
+        {
+            if (sender.IsMe)
+            {
+                args.Process = !_rBlock;
+            }
+        }
+
+        private static void Obj_AI_Base_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args)
+        {
+            if (!sender.IsMe) return;
+            if (args.SData.Name == "KatarinaE") _lastE = Environment.TickCount;
+        }
+
+        #endregion
+
+        #region WardJump
+
+        private static InventorySlot GetBestWardSlot()
+        {
+            var slot = Items.GetWardSlot();
+            return slot == default(InventorySlot) ? null : slot;
+        }
+
+        private static void WardJump()
+        {
+            if (Environment.TickCount <= _lastPlaced + 3000 || !spells[Spells.E].IsReady()) return;
+
+            var cursorPos = Game.CursorPos;
+            var myPos = Player.ServerPosition;
+            var delta = cursorPos - myPos;
+
+            delta.Normalize();
+
+            var wardPosition = myPos + delta*(600 - 5);
+            var wardSlot = GetBestWardSlot();
+
+            if (wardSlot == null) return;
+
+            Items.UseItem((int) wardSlot.Id, wardPosition);
+            _lastWardPos = wardPosition;
+            _lastPlaced = Environment.TickCount;
+        }
+
+        private static void WardJump(Vector2 pos)
+        {
+            if (Environment.TickCount <= _lastPlaced + 3000 || !spells[Spells.E].IsReady()) return;
+
+            var wardPosition = pos;
+            var wardSlot = GetBestWardSlot();
+
+            if (wardSlot == null) return;
+
+            Items.UseItem((int) wardSlot.Id, wardPosition);
+            _lastWardPos = wardPosition.To3D();
+            _lastPlaced = Environment.TickCount;
+        }
+
+        private static void GameObject_OnCreate(GameObject sender, EventArgs args)
+        {
+            var minion = sender as Obj_AI_Minion;
+            if (minion == null || !spells[Spells.E].IsReady() || Environment.TickCount >= _lastPlaced + 300)
+                return;
+
+            var ward = minion;
+
+            if (ward.Name.ToLower().Contains("ward") && ward.Distance(_lastWardPos) < 500)
+            {
+                spells[Spells.E].CastOnUnit(ward);
+            }
+        }
+
+        #endregion
     }
 }

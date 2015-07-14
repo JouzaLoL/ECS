@@ -96,7 +96,6 @@ namespace EasyCarryRyze
         {
             Player.SetSkin(Player.CharData.BaseSkinName, _config.Item("misc.skinchanger.enable").GetValue<bool>() ? _config.Item("misc.skinchanger.id").GetValue<StringList>().SelectedIndex : Player.BaseSkinId);
 
-
             if (Player.IsDead) return;
 
             switch (_orbwalker.ActiveMode)
@@ -155,7 +154,27 @@ namespace EasyCarryRyze
                     spells[Spells.R].Cast();
             }
 
-            if (Queuer.Queue.Count > 0) return;
+            if (Player.Level == 3 && spells[Spells.Q].IsReady() && spells[Spells.W].IsReady() && spells[Spells.E].IsReady()) //TripleSnare
+            {
+                if (_stacks == 2)
+                {
+                    spells[Spells.W].CastOnUnit(target);
+                    spells[Spells.Q].Cast(target.Position);
+                    spells[Spells.E].CastOnUnit(target);
+                }
+                else if (_stacks == 3)
+                {
+                    spells[Spells.W].CastOnUnit(target);
+                    if (!spells[Spells.W].IsReady()) spells[Spells.Q].Cast(target.Position);
+                    if (!spells[Spells.Q].IsReady() && !spells[Spells.W].IsReady()) spells[Spells.E].CastOnUnit(target);
+                }
+                else 
+                {
+                    if (useQ && spells[Spells.Q].IsReady() && spells[Spells.Q].GetPrediction(target).Hitchance >= CustomHitChance) spells[Spells.Q].Cast(target.Position);
+                    if (useE && spells[Spells.E].CanCast(target)) spells[Spells.E].Cast(target);
+                    if (useW && spells[Spells.W].CanCast(target)) spells[Spells.W].Cast(target);
+                }
+            }
 
             if (_passivecharged)
             {
@@ -171,23 +190,6 @@ namespace EasyCarryRyze
                         spells[Spells.R].Cast();
                     }
                     else
-                    {
-                        if (useQ && spells[Spells.Q].IsReady() && spells[Spells.Q].GetPrediction(target).Hitchance >= CustomHitChance) spells[Spells.Q].Cast(target.Position);
-                        if (useE && spells[Spells.E].CanCast(target)) spells[Spells.E].Cast(target);
-                        if (useW && spells[Spells.W].CanCast(target)) spells[Spells.W].Cast(target);
-                    }
-                    break;
-                case 3: //TripleSnare
-                    for (var i = 0; i < 3; i++)
-                    {
-                        Queuer.Add(Spells.W);
-                        Queuer.Add(Spells.Q);
-                        Queuer.Add(Spells.E);
-                        Queuer.Add(Spells.Q);
-                    }                   
-                    break;
-                default:
-                    if (_stacks < 4)
                     {
                         if (useQ && spells[Spells.Q].IsReady() && spells[Spells.Q].GetPrediction(target).Hitchance >= CustomHitChance) spells[Spells.Q].Cast(target.Position);
                         if (useE && spells[Spells.E].CanCast(target)) spells[Spells.E].Cast(target);
@@ -364,21 +366,6 @@ namespace EasyCarryRyze
         private static void Obj_AI_Base_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args)
         {
             if (!sender.IsMe) return;
-            switch (args.SData.Name)
-            {
-                case "RyzeQ":
-                    Queuer.Remove(Spells.Q);
-                    break;
-                case "RyzeW":
-                    Queuer.Remove(Spells.W);
-                    break;
-                case "RyzeE":
-                    Queuer.Remove(Spells.E);
-                    break;
-                case "RyzeR":
-                    Queuer.Remove(Spells.R);
-                    break;
-            }
         }
 
         #endregion
