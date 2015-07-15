@@ -110,13 +110,14 @@ namespace EasyCarryKatarina
             var killsteal = _config.Item("killsteal.enabled").GetValue<bool>();
             if (killsteal) Killsteal();
 
-            ResourceManager();
+            var e = _config.Item("resmanager.enabled").GetValue<bool>();
+            if (e) ResourceManager();
+           
         }
 
         private static void ResourceManager()
         {
-            var e = _config.Item("resmanager.enabled").GetValue<bool>();
-            if (!e) return;
+            
             var hp = (Player.MaxHealth/Player.Health)*100;
             var limit = _config.Item("resmanager.hp.slider").GetValue<Slider>().Value;
             var counter = _config.Item("resmanager.counter").GetValue<bool>();
@@ -124,7 +125,7 @@ namespace EasyCarryKatarina
 
             if (!potion.IsOwned(Player) || !potion.IsReady()) return;
             if (hp < limit || (counter && Player.HasBuff("SummonerIgnite")))
-                Items.UseItem(2003);
+                potion.Cast();
         }
 
         private static void Combo()
@@ -302,7 +303,7 @@ namespace EasyCarryKatarina
             {
                 var m = minions.FirstOrDefault(x => spell.IsKillable(x));
                 var e = _config.Item("farm.use" + spell.Slot).GetValue<bool>();
-                if (m == null || !e) return;
+                if (m == null || !e || Player.IsWindingUp) return;
                 spell.CastOnUnit(m);
             }
         }
@@ -332,14 +333,8 @@ namespace EasyCarryKatarina
                     var enemies = HeroManager.Enemies.Where(e => e.IsVisible);
                     var best = minion.OrderByDescending(l => enemies.OrderByDescending(e => e.Distance(l.Position)).FirstOrDefault().Distance(l.Position)).FirstOrDefault();
                     if (best != null)
-                        Drawing.DrawCircle(best.Position, 100, Color.Blue);
-                    spells[Spells.E].CastOnUnit(best);
+                        spells[Spells.E].CastOnUnit(best);               
                     break;
-            }
-
-            foreach (var b in ObjectManager.Get<Obj_AI_Hero>().Where(x => x.IsEnemy).SelectMany(h => h.Buffs))
-            {
-                Console.WriteLine(b.Name);
             }
         }
 
@@ -461,7 +456,12 @@ namespace EasyCarryKatarina
 
             var flee = new Menu("[Katarina] Flee Settings", "katarina.flee");
             {
-                flee.AddItem(new MenuItem("flee.key", "Flee Key: ")).SetValue(new KeyBind("A".ToCharArray()[0], KeyBindType.Press));
+                var y = flee.AddItem(new MenuItem("flee.key", "Flee Key: "));
+
+                //Flee event
+                //y.ValueChanged += (sender, args) => { if (args.GetNewValue<KeyBind>().Active) Flee(); };
+
+                flee.AddItem(y.SetValue(new KeyBind("A".ToCharArray()[0], KeyBindType.Press)));
                 flee.AddItem(new MenuItem("flee.mode", "Flee Mode:")).SetValue(new StringList(new[] {"To Mouse", "Auto"}));
                 flee.AddItem(new MenuItem("flee.useWardJump", "Use WardJump")).SetValue(true);
             }
