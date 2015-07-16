@@ -53,7 +53,6 @@ namespace EasyCarryKatarina
             Game.OnUpdate += OnUpdate;
             Drawing.OnDraw += Drawings;
 
-            Obj_AI_Base.OnProcessSpellCast += Obj_AI_Base_OnProcessSpellCast;
             Obj_AI_Base.OnPlayAnimation += OnAnimation;
             Obj_AI_Base.OnIssueOrder += Obj_AI_Hero_OnIssueOrder;
             Orbwalking.BeforeAttack += BeforeAttack;
@@ -159,8 +158,9 @@ namespace EasyCarryKatarina
 
             if (useItems)
                 UseItems(target);
+
             if (useW && spells[Spells.W].CanCast(target))
-                spells[Spells.W].CastOnUnit(target);
+                spells[Spells.W].Cast();
 
             if (useR && !spells[Spells.W].IsReady() && !spells[Spells.E].IsReady())
                 spells[Spells.R].Cast();
@@ -176,29 +176,17 @@ namespace EasyCarryKatarina
 
             switch (menuItem)
             {
-                case 0: //1st mode: Q only
-                    if (spells[Spells.Q].IsReady())
-                    {
-                        spells[Spells.Q].CastOnUnit(target);
-                    }
+                case 0:
+                    if (spells[Spells.Q].CanCast(target)) spells[Spells.Q].Cast(target);
                     break;
-                case 1: //2nd mode: Q and W
-                    if (spells[Spells.Q].IsReady() && spells[Spells.W].IsReady())
-                    {
-                        spells[Spells.Q].Cast(target);
-                        if (spells[Spells.W].IsInRange(target))
-                        {
-                            spells[Spells.W].Cast();
-                        }
-                    }
+                case 1:
+                    if (spells[Spells.Q].CanCast(target)) spells[Spells.Q].Cast(target);
+                    if (spells[Spells.W].CanCast(target) && Player.HasBuff("KatarinaQMark")) spells[Spells.W].Cast();
                     break;
-                case 2: //3rd mode: Q, E and W
-                    if (spells[Spells.Q].IsReady() && spells[Spells.W].IsReady() && spells[Spells.E].IsReady())
-                    {
-                        spells[Spells.Q].Cast(target);
-                        spells[Spells.E].Cast(target);
-                        spells[Spells.W].Cast();
-                    }
+                case 2:
+                    if (spells[Spells.Q].CanCast(target)) spells[Spells.Q].Cast(target);
+                    if (spells[Spells.E].CanCast(target) && Player.HasBuff("KatarinaQMark")) spells[Spells.E].Cast(target);
+                    if (spells[Spells.W].CanCast(target)) spells[Spells.W].Cast();
                     break;
             }
         }
@@ -214,13 +202,13 @@ namespace EasyCarryKatarina
             var qtarget = objAiHeroes.FirstOrDefault(y => spells[Spells.Q].IsKillable(y));
             if (useq && spells[Spells.Q].CanCast(qtarget) && qtarget != null)
             {
-                spells[Spells.Q].CastOnUnit(qtarget);
+                spells[Spells.Q].Cast(qtarget);
             }
 
             var wtarget = objAiHeroes.FirstOrDefault(y => spells[Spells.W].IsKillable(y));
             if (usew && spells[Spells.W].CanCast(wtarget) && wtarget != null)
             {
-                spells[Spells.W].CastOnUnit(wtarget);
+                spells[Spells.W].Cast();
             }
 
             var etarget = objAiHeroes.FirstOrDefault(y => spells[Spells.E].IsKillable(y));
@@ -247,8 +235,8 @@ namespace EasyCarryKatarina
             var target = TargetSelector.GetTarget(spells[Spells.Q].Range, TargetSelector.DamageType.Magical);
             if (target == null) return;
 
-            if (useq && spells[Spells.Q].IsReady() && spells[Spells.Q].IsInRange(target)) spells[Spells.Q].CastOnUnit(target);
-            if (usew && spells[Spells.W].IsReady() && spells[Spells.W].IsInRange(target)) spells[Spells.W].CastOnUnit(target);
+            if (useq && spells[Spells.Q].CanCast(target)) spells[Spells.Q].Cast(target);
+            if (usew && spells[Spells.W].CanCast(target)) spells[Spells.W].Cast();
         }
 
         private static void UseItems(Obj_AI_Base target)
@@ -277,7 +265,7 @@ namespace EasyCarryKatarina
 
             if (useQ && spells[Spells.Q].CanCast(m)) spells[Spells.Q].CastOnUnit(m);
             if (useW && spells[Spells.W].CanCast(m) && w >= count - 1) spells[Spells.W].Cast();
-            if (useE && spells[Spells.E].CanCast(m) && m.UnderTurret(true) == false) spells[Spells.E].CastOnUnit(m);
+            if (useE && spells[Spells.E].CanCast(m) && !m.UnderTurret(true)) spells[Spells.E].CastOnUnit(m);
         }
 
         private static void Jungleclear()
@@ -288,7 +276,7 @@ namespace EasyCarryKatarina
             var usew = _config.Item("laneclear.useW").GetValue<bool>();
             var usee = _config.Item("laneclear.useE").GetValue<bool>();
 
-            if (useq && spells[Spells.Q].CanCast(m)) spells[Spells.Q].CastOnUnit(m);
+            if (useq && spells[Spells.Q].CanCast(m) && m.HasBuff("KatarinaQMark")) spells[Spells.Q].CastOnUnit(m);
             if (usee && spells[Spells.E].CanCast(m)) spells[Spells.E].CastOnUnit(m);
             if (usew && spells[Spells.W].CanCast(m)) spells[Spells.W].Cast();
         }
@@ -342,11 +330,12 @@ namespace EasyCarryKatarina
             var d = _config.Item("legit.delayE").GetValue<Slider>().Value;
             if (l)
             {
-                if (Environment.TickCount > _lastE + d) spells[Spells.E].CastOnUnit(target);
+                if (Environment.TickCount > _lastE + d) spells[Spells.E].Cast(target);
+                _lastE = Environment.TickCount;
             }
             else
             {
-                spells[Spells.E].CastOnUnit(target);
+                spells[Spells.E].Cast(target);
             }
         }
 
@@ -372,6 +361,8 @@ namespace EasyCarryKatarina
             if (drawE)
                 if (spells[Spells.E].Level > 0)
                     Render.Circle.DrawCircle(ObjectManager.Player.Position, spells[Spells.E].Range, spells[Spells.E].IsReady() ? readyColor : cdColor);
+            
+
         }
 
         private static void InitMenu()
@@ -456,9 +447,6 @@ namespace EasyCarryKatarina
             {
                 var y = flee.AddItem(new MenuItem("flee.key", "Flee Key: "));
 
-                //Flee event
-                //y.ValueChanged += (sender, args) => { if (args.GetNewValue<KeyBind>().Active) Flee(); };
-
                 flee.AddItem(y.SetValue(new KeyBind("A".ToCharArray()[0], KeyBindType.Press)));
                 flee.AddItem(new MenuItem("flee.mode", "Flee Mode:")).SetValue(new StringList(new[] {"To Mouse", "Auto"}));
                 flee.AddItem(new MenuItem("flee.useWardJump", "Use WardJump")).SetValue(true);
@@ -468,8 +456,6 @@ namespace EasyCarryKatarina
             var legit = new Menu("[Katarina] Legit Menu", "katarina.legit");
             {
                 legit.AddItem(new MenuItem("legit.enabled", "Enable Legit Mode")).SetValue(true);
-                //legit.AddItem(new MenuItem("legit.delayQ", "Q Delay")).SetValue(new Slider(0, 0, 1000));
-                //legit.AddItem(new MenuItem("legit.delayW", "W Delay")).SetValue(new Slider(0, 0, 1000));
                 legit.AddItem(new MenuItem("legit.delayE", "E Delay")).SetValue(new Slider(750, 0, 1000));
             }
             _config.AddSubMenu(legit);
@@ -582,12 +568,6 @@ namespace EasyCarryKatarina
             }
         }
 
-        private static void Obj_AI_Base_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args)
-        {
-            if (!sender.IsMe) return;
-            if (args.SData.Name == "KatarinaE") _lastE = Environment.TickCount;
-        }
-
         #endregion
 
         #region WardJump
@@ -615,20 +595,6 @@ namespace EasyCarryKatarina
 
             Items.UseItem((int) wardSlot.Id, wardPosition);
             _lastWardPos = wardPosition;
-            _lastPlaced = Environment.TickCount;
-        }
-
-        private static void WardJump(Vector2 pos)
-        {
-            if (Environment.TickCount <= _lastPlaced + 3000 || !spells[Spells.E].IsReady()) return;
-
-            var wardPosition = pos;
-            var wardSlot = GetBestWardSlot();
-
-            if (wardSlot == null) return;
-
-            Items.UseItem((int) wardSlot.Id, wardPosition);
-            _lastWardPos = wardPosition.To3D();
             _lastPlaced = Environment.TickCount;
         }
 
