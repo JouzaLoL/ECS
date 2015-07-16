@@ -528,7 +528,7 @@ namespace EasyCarryRyze
             var misc = new Menu("[Ryze] Misc Settings", "ryze.misc");
             {
                 misc.AddItem(new MenuItem("misc.skinchanger.enable", "Use SkinChanger").SetValue(false));
-                misc.AddItem(new MenuItem("misc.skinchanger.id", "Select skin:").SetValue(new StringList(new[] {"Classic", "", ""})));
+                misc.AddItem(new MenuItem("misc.skinchanger.id", "Select skin:").SetValue(new StringList(new[] {"Classic", "Human", "Tribal", "Uncle", "Triumphant", "Professor", "Zombie", "Dark Crystal", "Pirate"})));
                 misc.AddItem(new MenuItem("misc.hitchance", "Q Hitchance").SetValue(new StringList(new[] { "Low", "Medium", "High", "Very High" }, 3)));
             }
             _config.AddSubMenu(misc);
