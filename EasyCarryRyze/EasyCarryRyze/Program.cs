@@ -5,13 +5,12 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Reflection;
+using System.Resources;
 using System.Threading;
 using LeagueSharp;
 using LeagueSharp.Common;
-
+using ItemData = LeagueSharp.Common.Data.ItemData;
 #endregion
-
-//TODO: ResManager, Auto Spell Lvl Up, Item Manager
 
 namespace EasyCarryRyze
 {
@@ -127,6 +126,9 @@ namespace EasyCarryRyze
             var killsteal = _config.Item("killsteal.enabled").GetValue<bool>();
             if (killsteal) Killsteal();
 
+            var resmanager = _config.Item("resmanager.enabled").GetValue<bool>();
+            if (resmanager) ResManager();
+
             PassiveControl();
         }
 
@@ -135,6 +137,47 @@ namespace EasyCarryRyze
             _passivecharged = Player.HasBuff("RyzePassiveCharged");
             var s = Player.Buffs.FirstOrDefault(b => b.DisplayName == "RyzePassiveStack");
             if (s != null) _stacks = s.Count;
+        }
+
+        private static void ResManager()
+        {
+            var hp = (Player.MaxHealth / Player.Health) * 100;
+            var mp = (Player.MaxMana/Player.Mana)*100;
+            var hlimit = _config.Item("resmanager.hp.slider").GetValue<Slider>().Value;
+            var mlimit = _config.Item("resmanager.mp.slider").GetValue<Slider>().Value;
+            var counter = _config.Item("resmanager.counter").GetValue<bool>();
+            var hpotion = ItemData.Health_Potion.GetItem();
+            var mpotion = ItemData.Mana_Potion.GetItem();
+            var biscuit = ItemData.Total_Biscuit_of_Rejuvenation.GetItem();
+            var flask = ItemData.Crystalline_Flask.GetItem();
+
+            if (hpotion.IsOwned(Player) && hpotion.IsReady())
+            {
+                if ((hp < hlimit || (counter && Player.HasBuff("SummonerIgnite"))) && !Player.HasBuff("RegenerationPotion"))
+                    hpotion.Cast();
+            }
+            else if (biscuit.IsOwned(Player) && biscuit.IsReady())
+            {
+                if ((hp < hlimit || (counter && Player.HasBuff("SummonerIgnite"))) && !Player.HasBuff("ItemMiniRegenPotion"))
+                    biscuit.Cast();
+            }
+            else if (flask.IsOwned(Player) && flask.IsReady())
+            {
+                if ((hp < hlimit || (counter && Player.HasBuff("SummonerIgnite"))) && !Player.HasBuff("ItemCrystalFlask"))
+                    flask.Cast();
+            }
+
+            if (mpotion.IsOwned(Player) && mpotion.IsReady())
+            {
+                if (mp < mlimit && !Player.HasBuff("ItemCrystalFlask") && !Player.HasBuff("Mana Potion"))
+                    mpotion.Cast();
+
+            }
+            else if (flask.IsOwned(Player) && flask.IsReady())
+            {
+                if (mp < mlimit && !Player.HasBuff("ItemCrystalFlask") && !Player.HasBuff("Mana Potion"))
+                    flask.Cast();
+            }
         }
 
         private static void Combo()
@@ -152,28 +195,6 @@ namespace EasyCarryRyze
             {
                 if (spells[Spells.R].IsReady())
                     spells[Spells.R].Cast();
-            }
-
-            if (Player.Level == 3 && spells[Spells.Q].IsReady() && spells[Spells.W].IsReady() && spells[Spells.E].IsReady()) //TripleSnare
-            {
-                if (_stacks == 2)
-                {
-                    spells[Spells.W].CastOnUnit(target);
-                    spells[Spells.Q].Cast(target.Position);
-                    spells[Spells.E].CastOnUnit(target);
-                }
-                else if (_stacks == 3)
-                {
-                    spells[Spells.W].CastOnUnit(target);
-                    if (!spells[Spells.W].IsReady()) spells[Spells.Q].Cast(target.Position);
-                    if (!spells[Spells.Q].IsReady() && !spells[Spells.W].IsReady()) spells[Spells.E].CastOnUnit(target);
-                }
-                else 
-                {
-                    if (useQ && spells[Spells.Q].IsReady() && spells[Spells.Q].GetPrediction(target).Hitchance >= CustomHitChance) spells[Spells.Q].Cast(target.Position);
-                    if (useE && spells[Spells.E].CanCast(target)) spells[Spells.E].Cast(target);
-                    if (useW && spells[Spells.W].CanCast(target)) spells[Spells.W].Cast(target);
-                }
             }
 
             if (_passivecharged)
@@ -495,6 +516,15 @@ namespace EasyCarryRyze
                     DamageIndicator.FillColor = eventArgs.GetNewValue<Circle>().Color;
                 };
 
+            var resmanager = new Menu("[Ryze] Resource Manager", "ryze.resmanager");
+            {
+                resmanager.AddItem(new MenuItem("resmanager.enabled", "Resource Manager Enabled")).SetValue(true);
+                resmanager.AddItem(new MenuItem("resmanager.hp.slider", "HP Pots HP %")).SetValue(new Slider(30, 1));
+                resmanager.AddItem(new MenuItem("resmanager.mp.slider", "MP Pots MP %")).SetValue(new Slider(30, 1));
+                resmanager.AddItem(new MenuItem("resmanager.counter", "Counter Ignite & Morde Ult")).SetValue(true);
+            }
+            _config.AddSubMenu(resmanager);
+
             var misc = new Menu("[Ryze] Misc Settings", "ryze.misc");
             {
                 misc.AddItem(new MenuItem("misc.skinchanger.enable", "Use SkinChanger").SetValue(false));
@@ -502,7 +532,6 @@ namespace EasyCarryRyze
                 misc.AddItem(new MenuItem("misc.hitchance", "Q Hitchance").SetValue(new StringList(new[] { "Low", "Medium", "High", "Very High" }, 3)));
             }
             _config.AddSubMenu(misc);
-            _config.AddItem(new MenuItem("ecs.ryze.credits", "Made by Jouza"));
 
             _config.AddToMainMenu();
         }
