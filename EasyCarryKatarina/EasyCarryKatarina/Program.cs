@@ -36,14 +36,10 @@ namespace EasyCarryKatarina
 
         private static void Main(string[] args)
         {
-            CustomEvents.Game.OnGameLoad += delegate
-            {
-                var onGameLoad = new Thread(Game_OnGameLoad);
-                onGameLoad.Start();
-            };
+            CustomEvents.Game.OnGameLoad += Game_OnGameLoad;
         }
 
-        private static void Game_OnGameLoad()
+        private static void Game_OnGameLoad(EventArgs args)
         {
             if (Player.CharData.BaseSkinName != "Katarina") return;
 
