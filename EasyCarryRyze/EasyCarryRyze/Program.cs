@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Reflection;
-using System.Resources;
 using System.Threading;
 using LeagueSharp;
 using LeagueSharp.Common;
@@ -42,14 +41,10 @@ namespace EasyCarryRyze
 
         private static void Main(string[] args)
         {
-            CustomEvents.Game.OnGameLoad += delegate
-            {
-                var onGameLoad = new Thread(Game_OnGameLoad);
-                onGameLoad.Start();
-            };
+            CustomEvents.Game.OnGameLoad += Game_OnGameLoad;
         }
 
-        private static void Game_OnGameLoad()
+        private static void Game_OnGameLoad(EventArgs args)
         {
             if (Player.CharData.BaseSkinName != "Ryze") return;
 
