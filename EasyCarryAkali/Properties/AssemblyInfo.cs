@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("EasyCarryKatarina")]
-[assembly: AssemblyDescription("EasyCarry Series - Katarina")]
+[assembly: AssemblyTitle("EasyCarryAkali")]
+[assembly: AssemblyDescription("EasyCarry Series - Akali")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Jouza Solutions")]
-[assembly: AssemblyProduct("EasyCarryKatarina")]
+[assembly: AssemblyProduct("EasyCarryAkali")]
 [assembly: AssemblyCopyright("Copyright ©  2015")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
@@ -32,5 +32,5 @@ using System.Runtime.InteropServices;
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("5.13.0.5")]
-[assembly: AssemblyFileVersion("5.13.0.5")]
+[assembly: AssemblyVersion("5.13.0.4")]
+[assembly: AssemblyFileVersion("5.13.0.4")]

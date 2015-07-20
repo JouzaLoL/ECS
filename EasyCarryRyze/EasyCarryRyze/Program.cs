@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Reflection;
-using System.Threading;
 using LeagueSharp;
 using LeagueSharp.Common;
 using ItemData = LeagueSharp.Common.Data.ItemData;
@@ -57,7 +56,7 @@ namespace EasyCarryRyze
             Game.OnUpdate += OnUpdate;
             Drawing.OnDraw += Drawings;
 
-            Obj_AI_Base.OnProcessSpellCast += Obj_AI_Base_OnProcessSpellCast;
+            AntiGapcloser.OnEnemyGapcloser += OnGapcloser;
             Orbwalking.BeforeAttack += BeforeAttack;
 
             Notifications.AddNotification("EasyCarry - Ryze Loaded", 5000);
@@ -218,8 +217,7 @@ namespace EasyCarryRyze
         private static void Harass()
         {
             var target = TargetSelector.GetTarget(spells[Spells.Q].Range, TargetSelector.DamageType.Magical);
-            if (target == null || !target.IsValidTarget())
-                return;
+            if (target == null || !target.IsValidTarget()) return;
             var qpred = spells[Spells.Q].GetPrediction(target);
             var mode = _config.Item("harass.mode").GetValue<StringList>().SelectedIndex;
 
@@ -232,19 +230,13 @@ namespace EasyCarryRyze
                     }
                     break;
                 case 1: //2nd mode: Q and W
-                    if (spells[Spells.Q].CanCast(target) && spells[Spells.W].CanCast(target) && qpred.Hitchance >= CustomHitChance)
-                    {
-                        spells[Spells.Q].Cast(qpred.CastPosition);
-                        spells[Spells.W].Cast(target);
-                    }
+                        if (spells[Spells.Q].CanCast(target) && qpred.Hitchance >= CustomHitChance) spells[Spells.Q].Cast(qpred.CastPosition);
+                        if (spells[Spells.W].CanCast(target)) spells[Spells.W].Cast(target);
                     break;
                 case 2: //3rd mode: Q, E and W
-                    if (spells[Spells.Q].IsReady() && spells[Spells.W].CanCast(target) && spells[Spells.E].IsReady() && qpred.Hitchance >= CustomHitChance)
-                    {
-                        spells[Spells.Q].Cast(qpred.CastPosition);
-                        spells[Spells.E].Cast(target);
-                        spells[Spells.W].Cast(target);
-                    }
+                        if (spells[Spells.Q].CanCast(target) && qpred.Hitchance >= CustomHitChance) spells[Spells.Q].Cast(qpred.CastPosition);
+                        if (spells[Spells.E].CanCast(target)) spells[Spells.E].Cast(target);
+                        if (spells[Spells.W].CanCast(target)) spells[Spells.W].Cast(target);
                     break;
             }
         }
@@ -269,13 +261,13 @@ namespace EasyCarryRyze
             var wtarget = objAiHeroes.FirstOrDefault(y => spells[Spells.W].IsKillable(y));
             if (usew && spells[Spells.W].CanCast(wtarget) && wtarget != null)
             {
-                spells[Spells.W].CastOnUnit(wtarget);
+                spells[Spells.W].Cast(wtarget);
             }
 
             var etarget = objAiHeroes.FirstOrDefault(y => spells[Spells.E].IsKillable(y));
             if (usee && spells[Spells.E].CanCast(etarget) && etarget != null)
             {
-                spells[Spells.E].CastOnUnit(etarget);
+                spells[Spells.E].Cast(etarget);
             }
 
             var itarget = objAiHeroes.FirstOrDefault(y => Player.GetSpellDamage(y, _igniteSlot) < y.Health && y.Distance(Player) <= 600);
@@ -295,9 +287,9 @@ namespace EasyCarryRyze
             var usee = _config.Item("autoharass.useE").GetValue<bool>();
             var qpred = spells[Spells.Q].GetPrediction(target);
 
-            if (useq && spells[Spells.Q].IsReady() && qpred.Hitchance >= CustomHitChance) spells[Spells.Q].Cast(qpred.CastPosition);
-            if (usew && spells[Spells.W].CanCast(target)) spells[Spells.W].CastOnUnit(target);
-            if (usee && spells[Spells.E].IsReady()) spells[Spells.E].CastOnUnit(target);
+            if (useq && spells[Spells.Q].CanCast(target) && qpred.Hitchance >= CustomHitChance) spells[Spells.Q].Cast(qpred.CastPosition);
+            if (usew && spells[Spells.W].CanCast(target)) spells[Spells.W].Cast(target);
+            if (usee && spells[Spells.E].CanCast(target)) spells[Spells.E].Cast(target);
         }
 
         private static void Laneclear()
@@ -359,18 +351,18 @@ namespace EasyCarryRyze
                 if (spell.IsSkillshot && qpred <= 0)
                     spell.Cast(m.Position);
                 else
-                    spell.CastOnUnit(m);              
+                    spell.Cast(m);              
             }
         }
 
         private static void Flee()
         {
             var h = ObjectManager.Get<Obj_AI_Hero>().FirstOrDefault(x => x.IsTargetable && x.IsEnemy && spells[Spells.W].CanCast(x));
-            if (h != null) spells[Spells.W].CastOnUnit(h);
+            if (h != null) spells[Spells.W].Cast(h);
             Player.IssueOrder(GameObjectOrder.MoveTo, Game.CursorPos);
         }
 
-        #region AA Block
+        #region AA Block & Antigapcloser
 
         private static void BeforeAttack(Orbwalking.BeforeAttackEventArgs args)
         {
@@ -378,10 +370,10 @@ namespace EasyCarryRyze
             args.Process = !(spells[Spells.Q].IsReady() || spells[Spells.W].IsReady() || spells[Spells.E].IsReady());
         }
 
-
-        private static void Obj_AI_Base_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args)
+        private static void OnGapcloser(ActiveGapcloser gapcloser)
         {
-            if (!sender.IsMe) return;
+            if (!spells[Spells.W].CanCast(gapcloser.Sender)) return;
+            spells[Spells.W].Cast(gapcloser.Sender);
         }
 
         #endregion
@@ -522,6 +514,7 @@ namespace EasyCarryRyze
 
             var misc = new Menu("[Ryze] Misc Settings", "ryze.misc");
             {
+                misc.AddItem(new MenuItem("misc.gapcloser", "Enable Anti Gapcloser")).SetValue(true);
                 misc.AddItem(new MenuItem("misc.skinchanger.enable", "Use SkinChanger").SetValue(false));
                 misc.AddItem(new MenuItem("misc.skinchanger.id", "Select skin:").SetValue(new StringList(new[] {"Classic", "Human", "Tribal", "Uncle", "Triumphant", "Professor", "Zombie", "Dark Crystal", "Pirate"})));
                 misc.AddItem(new MenuItem("misc.hitchance", "Q Hitchance").SetValue(new StringList(new[] { "Low", "Medium", "High", "Very High" }, 3)));

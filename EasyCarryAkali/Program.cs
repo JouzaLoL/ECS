@@ -2,37 +2,35 @@
 
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Reflection;
 using LeagueSharp;
 using LeagueSharp.Common;
-using SharpDX;
-using Color = System.Drawing.Color;
 using ItemData = LeagueSharp.Common.Data.ItemData;
 
 #endregion
-
-namespace EasyCarryKatarina
+//ToDo: Check if ItemData is working >.<
+namespace EasyCarryAkali
 {
-    internal class Program
+    class Program
     {
+        private static string _champName = "Akali";
         private static Orbwalking.Orbwalker _orbwalker;
         private static SpellSlot _igniteSlot;
         private static Menu _config;
         private static readonly Obj_AI_Hero Player = ObjectManager.Player;
-        private static bool _rBlock;
-        private static int _lastE;
-        private static Vector3 _lastWardPos;
-        private static int _lastPlaced;
+        private static int _stacks;
         // ReSharper disable once InconsistentNaming
         private static readonly Dictionary<Spells, Spell> spells = new Dictionary<Spells, Spell>
         {
-            {Spells.Q, new Spell(SpellSlot.Q, 675)},
-            {Spells.W, new Spell(SpellSlot.W, 375)},
-            {Spells.E, new Spell(SpellSlot.E, 700)},
-            {Spells.R, new Spell(SpellSlot.R, 550)}
+            {Spells.Q, new Spell(SpellSlot.Q, Player.Spellbook.GetSpell(SpellSlot.Q).SData.CastRange)},
+            {Spells.W, new Spell(SpellSlot.W, Player.Spellbook.GetSpell(SpellSlot.W).SData.CastRange)},
+            {Spells.E, new Spell(SpellSlot.E, Player.Spellbook.GetSpell(SpellSlot.E).SData.CastRange)},
+            {Spells.R, new Spell(SpellSlot.R, Player.Spellbook.GetSpell(SpellSlot.R).SData.CastRange)}
         };
 
+        // ReSharper disable once UnusedParameter.Local
         private static void Main(string[] args)
         {
             CustomEvents.Game.OnGameLoad += Game_OnGameLoad;
@@ -40,25 +38,23 @@ namespace EasyCarryKatarina
 
         private static void Game_OnGameLoad(EventArgs args)
         {
-            if (Player.CharData.BaseSkinName != "Katarina") return;
+            if (Player.CharData.BaseSkinName != _champName) return;
 
             _igniteSlot = Player.GetSpellSlot("SummonerDot");
 
-            spells[Spells.R].SetCharged("KatarinaR", "KatarinaR", 550, 550, 1.0f);
-            spells[Spells.Q].SetTargetted((float) 0.3, 400);
-
             InitMenu();
+
+            foreach (var s in spells.Values)
+            {
+                Console.WriteLine(s.Slot + ": " + s.Range);
+            }
+            Console.WriteLine(Player.Spellbook.GetSpell(SpellSlot.Q).SData.AfterEffectName);
+
 
             Game.OnUpdate += OnUpdate;
             Drawing.OnDraw += Drawings;
 
-            Obj_AI_Base.OnPlayAnimation += OnAnimation;
-            Obj_AI_Base.OnIssueOrder += Obj_AI_Hero_OnIssueOrder;
-            Orbwalking.BeforeAttack += BeforeAttack;
-
-            GameObject.OnCreate += GameObject_OnCreate;
-
-            Notifications.AddNotification("EasyCarry - Katarina Loaded", 5000);
+            Notifications.AddNotification("EasyCarry - " + _champName + " Loaded", 5000);
             Notifications.AddNotification("Version: " + Assembly.GetExecutingAssembly().GetName().Version, 5000);
         }
 
@@ -67,15 +63,6 @@ namespace EasyCarryKatarina
             Player.SetSkin(Player.CharData.BaseSkinName, _config.Item("misc.skinchanger.enable").GetValue<bool>() ? _config.Item("misc.skinchanger.id").GetValue<StringList>().SelectedIndex : Player.BaseSkinId);
 
             if (Player.IsDead) return;
-
-            if (_rBlock)
-            {
-                _orbwalker.SetAttack(false);
-                _orbwalker.SetMovement(false);
-            }
-
-            _orbwalker.SetAttack(true);
-            _orbwalker.SetMovement(true);
 
             switch (_orbwalker.ActiveMode)
             {
@@ -87,8 +74,8 @@ namespace EasyCarryKatarina
                     Harass();
                     break;
 
-                case Orbwalking.OrbwalkingMode.LaneClear:
-                    Laneclear();
+                case Orbwalking.OrbwalkingMode.jungleclear:
+                    jungleclear();
                     Jungleclear();
                     break;
 
@@ -108,12 +95,12 @@ namespace EasyCarryKatarina
 
             var e = _config.Item("resmanager.enabled").GetValue<bool>();
             if (e) ResourceManager();
-           
+
+            _stacks = Player.GetBuff("AkaliRStack").Count;
         }
 
         private static void ResourceManager()
         {
-            
             var hp = (Player.MaxHealth/Player.Health)*100;
             var limit = _config.Item("resmanager.hp.slider").GetValue<Slider>().Value;
             var counter = _config.Item("resmanager.counter").GetValue<bool>();
@@ -129,40 +116,26 @@ namespace EasyCarryKatarina
             var target = TargetSelector.GetTarget(spells[Spells.Q].Range, TargetSelector.DamageType.Magical);
             if (target == null) return;
 
-            var qemode = _config.Item("combo.qemode").GetValue<StringList>().SelectedIndex;
             var useQ = _config.Item("combo.useQ").GetValue<bool>();
-            var useW = _config.Item("combo.useW").GetValue<bool>();
             var useE = _config.Item("combo.useE").GetValue<bool>();
             var useR = _config.Item("combo.useR").GetValue<bool>();
             var useItems = _config.Item("combo.useItems").GetValue<bool>();
-
-            if (Player.CountEnemiesInRange(spells[Spells.R].Range + 50) < 1) _rBlock = false;
-
-            //TODO: Auto switch QE mode based on WindWall collision
-
-            if (qemode == 0)
-            {
-                if (useQ && spells[Spells.Q].CanCast(target))
-                    spells[Spells.Q].CastOnUnit(target);
-                if (useE && spells[Spells.E].CanCast(target) && target.HasBuff("KatarinaQMark"))
-                    CastE(target);
-            }
-            else
-            {
-                if (useE && spells[Spells.E].CanCast(target))
-                    CastE(target);
-                if (useQ)
-                    spells[Spells.Q].CastOnUnit(target);
-            }
+            var rdist = _config.Item("r.distance").GetValue<Slider>().Value;
 
             if (useItems)
                 UseItems(target);
 
-            if (useW && spells[Spells.W].CanCast(target))
-                spells[Spells.W].Cast();
+            if (useQ && spells[Spells.Q].CanCast(target) && !target.HasBuff("AkaliQMark"))
+                spells[Spells.Q].Cast(target);
 
-            if (useR && !spells[Spells.W].IsReady() && !spells[Spells.E].IsReady())
-                spells[Spells.R].Cast();
+            if (useE && spells[Spells.E].CanCast(target))
+                spells[Spells.E].Cast();
+
+            if (useR && spells[Spells.R].CanCast(target))
+            {
+                if (Player.Distance(target) > rdist)
+                    spells[Spells.R].Cast(target);
+            }
         }
 
         private static void Harass()
@@ -180,12 +153,7 @@ namespace EasyCarryKatarina
                     break;
                 case 1:
                     if (spells[Spells.Q].CanCast(target)) spells[Spells.Q].Cast(target);
-                    if (spells[Spells.W].CanCast(target) && Player.HasBuff("KatarinaQMark")) spells[Spells.W].Cast();
-                    break;
-                case 2:
-                    if (spells[Spells.Q].CanCast(target)) spells[Spells.Q].Cast(target);
-                    if (spells[Spells.E].CanCast(target) && Player.HasBuff("KatarinaQMark")) spells[Spells.E].Cast(target);
-                    if (spells[Spells.W].CanCast(target)) spells[Spells.W].Cast();
+                    if (spells[Spells.E].CanCast(target)) spells[Spells.E].Cast();
                     break;
             }
         }
@@ -194,7 +162,7 @@ namespace EasyCarryKatarina
         {
             var e = HeroManager.Enemies.Where(x => x.IsVisible && x.IsValidTarget());
             var useq = _config.Item("killsteal.useQ").GetValue<bool>();
-            var usew = _config.Item("killsteal.useW").GetValue<bool>();
+            var user = _config.Item("killsteal.useR").GetValue<bool>();
             var usee = _config.Item("killsteal.useE").GetValue<bool>();
 
             var objAiHeroes = e as Obj_AI_Hero[] ?? e.ToArray();
@@ -204,19 +172,19 @@ namespace EasyCarryKatarina
                 spells[Spells.Q].Cast(qtarget);
             }
 
-            var wtarget = objAiHeroes.FirstOrDefault(y => spells[Spells.W].IsKillable(y));
-            if (usew && spells[Spells.W].CanCast(wtarget) && wtarget != null)
+            var rtarget = objAiHeroes.FirstOrDefault(y => spells[Spells.R].IsKillable(y));
+            if (user && spells[Spells.R].CanCast(rtarget) && rtarget != null)
             {
-                spells[Spells.W].Cast();
+                spells[Spells.R].Cast(rtarget);
             }
 
             var etarget = objAiHeroes.FirstOrDefault(y => spells[Spells.E].IsKillable(y));
             if (usee && spells[Spells.E].CanCast(etarget) && etarget != null)
             {
-                CastE(etarget);
+                spells[Spells.E].Cast();
             }
 
-            var itarget = objAiHeroes.FirstOrDefault(y => Player.GetSpellDamage(y, _igniteSlot) > y.Health && y.Distance(Player) <= 600);
+            var itarget = objAiHeroes.FirstOrDefault(y => Player.GetSpellDamage(y, _igniteSlot) < y.Health && y.Distance(Player) <= 600);
             if (Player.Spellbook.CanUseSpell(_igniteSlot) == SpellState.Ready && itarget != null)
             {
                 Player.Spellbook.CastSpell(_igniteSlot, itarget);
@@ -230,16 +198,18 @@ namespace EasyCarryKatarina
             if (!enabled) return;
 
             var useq = _config.Item("autoharass.useQ").GetValue<bool>();
-            var usew = _config.Item("autoharass.useW").GetValue<bool>();
+            var usee = _config.Item("autoharass.useE").GetValue<bool>();
             var target = TargetSelector.GetTarget(spells[Spells.Q].Range, TargetSelector.DamageType.Magical);
             if (target == null) return;
 
             if (useq && spells[Spells.Q].CanCast(target)) spells[Spells.Q].Cast(target);
-            if (usew && spells[Spells.W].CanCast(target)) spells[Spells.W].Cast();
+            if (usee && spells[Spells.E].CanCast(target)) spells[Spells.E].Cast();
         }
 
         private static void UseItems(Obj_AI_Base target)
         {
+            var useHextech = _config.Item("combo.useItems").GetValue<bool>();
+            if (!useHextech) return;
             var cutlass = ItemData.Bilgewater_Cutlass.GetItem();
             var hextech = ItemData.Hextech_Gunblade.GetItem();
 
@@ -250,100 +220,75 @@ namespace EasyCarryKatarina
                 hextech.Cast(target);
         }
 
-        private static void Laneclear()
+        private static void jungleclear()
         {
             var m = MinionManager.GetMinions(spells[Spells.Q].Range, MinionTypes.All, MinionTeam.Enemy, MinionOrderTypes.MaxHealth).FirstOrDefault();
             if (m == null) return;
-            var w = MinionManager.GetMinions(spells[Spells.W].Range).Count;
-            var count = _config.Item("laneclear.whitcount").GetValue<Slider>().Value;
-            var useQ = _config.Item("laneclear.useQ").GetValue<bool>();
-            var useW = _config.Item("laneclear.useW").GetValue<bool>();
-            var useE = _config.Item("laneclear.useE").GetValue<bool>();
+            var stacks = _config.Item("misc.keepstacks").GetValue<Slider>().Value;
+            var e = MinionManager.GetMinions(spells[Spells.E].Range).Count;
+            var count = _config.Item("jungleclear.ehitcount").GetValue<Slider>().Value;
+            var useQ = _config.Item("jungleclear.useQ").GetValue<bool>();
+            var useR = _config.Item("jungleclear.useR").GetValue<bool>();
+            var useE = _config.Item("jungleclear.useE").GetValue<bool>();
 
             if (useQ && spells[Spells.Q].CanCast(m)) spells[Spells.Q].CastOnUnit(m);
-            if (useW && spells[Spells.W].CanCast(m) && w >= count - 1) spells[Spells.W].Cast();
-            if (useE && spells[Spells.E].CanCast(m) && !m.UnderTurret(true)) spells[Spells.E].CastOnUnit(m);
+            if (useR && spells[Spells.R].CanCast(m) && !m.UnderTurret(true) && _stacks > stacks) spells[Spells.R].Cast(m);
+            if (useE && spells[Spells.E].CanCast(m) && e >= count - 1) spells[Spells.E].Cast();
         }
 
         private static void Jungleclear()
         {
             var m = MinionManager.GetMinions(spells[Spells.Q].Range, MinionTypes.All, MinionTeam.Neutral, MinionOrderTypes.MaxHealth).FirstOrDefault();
             if (m == null) return;
-
-            var mode = _config.Item("jungleclear.mode").GetValue<StringList>().SelectedIndex;
+            var stacks = _config.Item("misc.keepstacks").GetValue<Slider>().Value;
             var useq = _config.Item("jungleclear.useQ").GetValue<bool>();
-            var usew = _config.Item("jungleclear.useW").GetValue<bool>();
+            var user = _config.Item("jungleclear.useR").GetValue<bool>();
             var usee = _config.Item("jungleclear.useE").GetValue<bool>();
 
-            if (mode == 0)
-            {
-                if (useq && spells[Spells.Q].CanCast(m)) spells[Spells.Q].CastOnUnit(m);
-                if (usee && spells[Spells.E].CanCast(m) && m.HasBuff("KatarinaQMark")) spells[Spells.E].CastOnUnit(m);
-                if (usew && spells[Spells.W].CanCast(m)) spells[Spells.W].Cast();
-            }
-            else
-            {
-                if (usee && spells[Spells.E].CanCast(m)) spells[Spells.E].CastOnUnit(m);
-                if (useq && spells[Spells.Q].CanCast(m)) spells[Spells.Q].CastOnUnit(m);
-                if (usew && spells[Spells.W].CanCast(m) && m.HasBuff("KatarinaQMark")) spells[Spells.W].Cast();
-            }
+            if (useq && spells[Spells.Q].CanCast(m)) spells[Spells.Q].CastOnUnit(m);
+            if (usee && spells[Spells.E].CanCast(m) && !m.HasBuff("AkaliQMark")) spells[Spells.E].CastOnUnit(m);
+            if (user && spells[Spells.R].CanCast(m) && _stacks > stacks) spells[Spells.R].Cast(m);
         }
 
         private static void Lasthit()
         {
             var minions = MinionManager.GetMinions(spells[Spells.Q].Range);
+            var stacks = _config.Item("misc.keepstacks").GetValue<Slider>().Value;
 
             foreach (var spell in spells.Values)
             {
                 var m = minions.FirstOrDefault(x => spell.IsKillable(x));
                 var e = _config.Item("farm.use" + spell.Slot).GetValue<bool>();
                 if (m == null || !e || Player.IsWindingUp) return;
-                spell.CastOnUnit(m);
+                if (spell == spells[Spells.R] && _stacks > stacks)
+                {
+                    spells[Spells.R].Cast(m);
+                }
+                else
+                    spell.CastOnUnit(m);
             }
         }
 
         private static void Flee()
         {
             var mode = _config.Item("flee.mode").GetValue<StringList>().SelectedIndex;
-            var wardjump = _config.Item("flee.useWardJump").GetValue<bool>();
 
             switch (mode)
             {
                 case 0: //To mouse
-                    var m = MinionManager.GetMinions(Game.CursorPos, 300, MinionTypes.All, MinionTeam.All).FirstOrDefault(j => spells[Spells.E].IsInRange(j));
-                    var wards = ObjectManager.Get<Obj_AI_Base>().Where(x => x.Name.ToLower().Contains("ward")).FirstOrDefault(x => Player.Distance(x.Position) <= spells[Spells.E].Range && x.Distance(Game.CursorPos) < 300);
+                    var m = MinionManager.GetMinions(Game.CursorPos, 300, MinionTypes.All, MinionTeam.All).FirstOrDefault(j => spells[Spells.R].CanCast(j));
                     var h = ObjectManager.Get<Obj_AI_Hero>().FirstOrDefault(x => x.IsTargetable && x.IsEnemy && spells[Spells.W].CanCast(x));
                     if (h != null) spells[Spells.W].Cast();
-                    if (m != null) spells[Spells.E].CastOnUnit(m);
-                    else if (wards != null) spells[Spells.E].CastOnUnit(wards);
-                    else if (wardjump)
-                    {
-                        WardJump();
-                    }
+                    if (m != null) spells[Spells.R].Cast(m);
                     Player.IssueOrder(GameObjectOrder.MoveTo, Game.CursorPos);
                     break;
                 case 1: //Auto
-                    var minion = MinionManager.GetMinions(spells[Spells.E].Range, MinionTypes.All, MinionTeam.All);
+                    var minion = MinionManager.GetMinions(spells[Spells.R].Range);
                     var enemies = HeroManager.Enemies.Where(e => e.IsVisible);
                     var best = minion.OrderByDescending(l => enemies.OrderByDescending(e => e.Distance(l.Position)).FirstOrDefault().Distance(l.Position)).FirstOrDefault();
-                    if (best != null)
-                        spells[Spells.E].CastOnUnit(best);               
+                    if (best != null && spells[Spells.R].CanCast(best))
+                        spells[Spells.R].Cast(best);
                     break;
-            }
-        }
-
-        private static void CastE(Obj_AI_Base target)
-        {
-            var l = _config.Item("legit.enabled").GetValue<bool>();
-            var d = _config.Item("legit.delayE").GetValue<Slider>().Value;
-            if (l)
-            {
-                if (Environment.TickCount > _lastE + d) spells[Spells.E].Cast(target);
-                _lastE = Environment.TickCount;
-            }
-            else
-            {
-                spells[Spells.E].Cast(target);
             }
         }
 
@@ -354,48 +299,37 @@ namespace EasyCarryKatarina
 
             var readyColor = _config.Item("drawing.readyColor").GetValue<Circle>().Color;
             var cdColor = _config.Item("drawing.cdColor").GetValue<Circle>().Color;
-            var drawQ = _config.Item("drawing.drawQ").GetValue<bool>();
-            var drawW = _config.Item("drawing.drawW").GetValue<bool>();
-            var drawE = _config.Item("drawing.drawE").GetValue<bool>();
 
-            if (drawQ)
-                if (spells[Spells.Q].Level > 0)
-                    Render.Circle.DrawCircle(ObjectManager.Player.Position, spells[Spells.Q].Range, spells[Spells.Q].IsReady() ? readyColor : cdColor);
-
-            if (drawW)
-                if (spells[Spells.W].Level > 0)
-                    Render.Circle.DrawCircle(ObjectManager.Player.Position, spells[Spells.W].Range, spells[Spells.W].IsReady() ? readyColor : cdColor);
-
-            if (drawE)
-                if (spells[Spells.E].Level > 0)
-                    Render.Circle.DrawCircle(ObjectManager.Player.Position, spells[Spells.E].Range, spells[Spells.E].IsReady() ? readyColor : cdColor);
-            
-
+            foreach (var s in spells.Values.Where(k => k.Level > 0 && _config.Item("drawing.draw" + k.Slot.ToString().ToUpper()).GetValue<bool>()))
+            {
+                Render.Circle.DrawCircle(ObjectManager.Player.Position, s.Range, s.IsReady() ? readyColor : cdColor);
+            }
         }
 
         private static void InitMenu()
         {
-            _config = new Menu("[EasyCarry] - Katarina", "ecs.katarina", true);
+            _config = new Menu("[EasyCarry] - " + _champName, "ecs." + _champName, true);
 
-            _config.AddSubMenu(new Menu("[Katarina] Orbwalker", "ecs.orbwalker"));
+            _config.AddSubMenu(new Menu("[" + _champName + "] Orbwalker", "ecs.orbwalker"));
             _orbwalker = new Orbwalking.Orbwalker(_config.SubMenu("ecs.orbwalker"));
 
-            var tsMenu = new Menu("[Katarina] Target Selector", "ecs.targetselector");
+            var tsMenu = new Menu("[" + _champName + "] Target Selector", "ecs.targetselector");
             TargetSelector.AddToMenu(tsMenu);
             _config.AddSubMenu(tsMenu);
 
-            var combo = new Menu("[Katarina] Combo Settings", "katarina.combo");
+            var combo = new Menu("[" + _champName + "] Combo Settings", _champName + ".combo");
             {
-                combo.AddItem(new MenuItem("combo.qemode", "QE Mode")).SetValue(new StringList(new[] {"Q -> E", "E -> Q"}));
                 combo.AddItem(new MenuItem("combo.useItems", "Use Items")).SetValue(true);
                 combo.AddItem(new MenuItem("combo.useQ", "Use Q")).SetValue(true);
                 combo.AddItem(new MenuItem("combo.useW", "Use W")).SetValue(true);
                 combo.AddItem(new MenuItem("combo.useE", "Use E")).SetValue(true);
                 combo.AddItem(new MenuItem("combo.useR", "Use R")).SetValue(true);
+                var rmenu = new Menu("R Settings", "combo.r");
+                rmenu.AddItem(new MenuItem("r.dist", "Minimum distance to target to cast R")).SetValue(true);
             }
             _config.AddSubMenu(combo);
 
-            var killsteal = new Menu("[Katarina] Killsteal Settings", "katarina.killsteal");
+            var killsteal = new Menu("[" + _champName + "] Killsteal Settings", _champName + ".killsteal");
             {
                 killsteal.AddItem(new MenuItem("killsteal.enabled", "Killsteal Enabled")).SetValue(true);
                 killsteal.AddItem(new MenuItem("killsteal.useQ", "Use Q")).SetValue(true);
@@ -405,7 +339,7 @@ namespace EasyCarryKatarina
             }
             _config.AddSubMenu(killsteal);
 
-            var harass = new Menu("[Katarina] Harass Settings", "katarina.harass");
+            var harass = new Menu("[" + _champName + "] Harass Settings", _champName + ".harass");
             {
                 harass.AddItem(new MenuItem("harass.mode", "Harass Mode: ").SetValue(new StringList(new[] {"Q only", "Q -> W", "Q -> E -> W"})));
                 harass.AddItem(new MenuItem("placeholder", "======_AutoHarass_======"));
@@ -415,61 +349,41 @@ namespace EasyCarryKatarina
             }
             _config.AddSubMenu(harass);
 
-            var farm = new Menu("[Katarina] Farm Settings", "katarina.farm");
+            var farm = new Menu("[" + _champName + "] Farm Settings", _champName + ".farm");
             {
                 farm.AddItem(new MenuItem("farm.useQ", "Use Q")).SetValue(true);
-                farm.AddItem(new MenuItem("farm.useW", "Use W")).SetValue(true);
-                farm.AddItem(new MenuItem("farm.useE", "Use E")).SetValue(false);
+                farm.AddItem(new MenuItem("farm.useE", "Use E")).SetValue(true);
+                farm.AddItem(new MenuItem("farm.useR", "Use R")).SetValue(false);
             }
             _config.AddSubMenu(farm);
 
-            var laneclear = new Menu("[Katarina] Laneclear Settings", "katarina.laneclear");
+            var jungleclear = new Menu("[" + _champName + "] jungleclear Settings", _champName + ".jungleclear");
             {
-                laneclear.AddItem(new MenuItem("laneclear.whitcount", "Minium W Hit Count")).SetValue(new Slider(3, 1, 10));
-                laneclear.AddItem(new MenuItem("laneclear.useQ", "Use Q")).SetValue(true);
-                laneclear.AddItem(new MenuItem("laneclear.useW", "Use W")).SetValue(true);
-                laneclear.AddItem(new MenuItem("laneclear.useE", "Use E")).SetValue(false);
-            }
-            _config.AddSubMenu(laneclear);
-
-            var jungleclear = new Menu("[Katarina] Jungleclear Settings", "katarina.jungleclear");
-            {
-                jungleclear.AddItem(new MenuItem("jungleclear.mode", "Mode")).SetValue(new StringList(new[] { "QEW", "EQW" }, 1));
+                jungleclear.AddItem(new MenuItem("jungleclear.whitcount", "Minium W Hit Count")).SetValue(new Slider(3, 1, 10));
                 jungleclear.AddItem(new MenuItem("jungleclear.useQ", "Use Q")).SetValue(true);
-                jungleclear.AddItem(new MenuItem("jungleclear.useW", "Use W")).SetValue(true);
                 jungleclear.AddItem(new MenuItem("jungleclear.useE", "Use E")).SetValue(true);
+                jungleclear.AddItem(new MenuItem("jungleclear.useR", "Use R")).SetValue(false);
             }
             _config.AddSubMenu(jungleclear);
 
-            var wardjump = new Menu("[Katarina] Wardjump Settings", "katarina.wardjump");
+            var jungleclear = new Menu("[" + _champName + "] Jungleclear Settings", _champName + ".jungleclear");
             {
-                var x = new MenuItem("wardjump.key", "Wardjump Key: ");
-
-                //Wardjump event
-                x.ValueChanged += (sender, args) => { if (args.GetNewValue<KeyBind>().Active) WardJump(); };
-
-                wardjump.AddItem(x.SetValue(new KeyBind("S".ToCharArray()[0], KeyBindType.Press)));
+                jungleclear.AddItem(new MenuItem("jungleclear.useQ", "Use Q")).SetValue(true);
+                jungleclear.AddItem(new MenuItem("jungleclear.useE", "Use E")).SetValue(true);
+                jungleclear.AddItem(new MenuItem("jungleclear.useR", "Use R")).SetValue(true);
             }
-            _config.AddSubMenu(wardjump);
+            _config.AddSubMenu(jungleclear);
 
-            var flee = new Menu("[Katarina] Flee Settings", "katarina.flee");
+            var flee = new Menu("[" + _champName + "] Flee Settings", _champName + ".flee");
             {
                 var y = flee.AddItem(new MenuItem("flee.key", "Flee Key: "));
 
                 flee.AddItem(y.SetValue(new KeyBind("A".ToCharArray()[0], KeyBindType.Press)));
                 flee.AddItem(new MenuItem("flee.mode", "Flee Mode:")).SetValue(new StringList(new[] {"To Mouse", "Auto"}));
-                flee.AddItem(new MenuItem("flee.useWardJump", "Use WardJump")).SetValue(true);
             }
             _config.AddSubMenu(flee);
 
-            var legit = new Menu("[Katarina] Legit Menu", "katarina.legit");
-            {
-                legit.AddItem(new MenuItem("legit.enabled", "Enable Legit Mode")).SetValue(true);
-                legit.AddItem(new MenuItem("legit.delayE", "E Delay")).SetValue(new Slider(750, 0, 1000));
-            }
-            _config.AddSubMenu(legit);
-
-            var drawing = new Menu("[Katarina] Drawing Settings", "katarina.drawing");
+            var drawing = new Menu("[" + _champName + "] Drawing Settings", _champName + ".drawing");
             {
                 drawing.AddItem(new MenuItem("drawing.enable", "Enable Drawing")).SetValue(true);
                 drawing.AddItem(new MenuItem("drawing.readyColor", "Color of Ready Spells")).SetValue(new Circle(true, Color.White));
@@ -496,7 +410,7 @@ namespace EasyCarryKatarina
                     DamageIndicator.FillColor = eventArgs.GetNewValue<Circle>().Color;
                 };
 
-            var resmanager = new Menu("[Katarina] Resource Manager", "katarina.resmanager");
+            var resmanager = new Menu("[" + _champName + "] Resource Manager", _champName + ".resmanager");
             {
                 resmanager.AddItem(new MenuItem("resmanager.enabled", "Resource Manager Enabled")).SetValue(true);
                 resmanager.AddItem(new MenuItem("resmanager.hp.slider", "HP Pots HP %")).SetValue(new Slider(30, 1));
@@ -504,8 +418,9 @@ namespace EasyCarryKatarina
             }
             _config.AddSubMenu(resmanager);
 
-            var misc = new Menu("[Katarina] Misc Settings", "katarina.misc");
+            var misc = new Menu("[" + _champName + "] Misc Settings", _champName + ".misc");
             {
+                misc.AddItem(new MenuItem("misc.keepstacks", "Keep R Stacks")).SetValue(new Slider(1, 0, 3));
                 misc.AddItem(new MenuItem("misc.skinchanger.enable", "Use SkinChanger").SetValue(false));
                 misc.AddItem(new MenuItem("misc.skinchanger.id", "Select skin:").SetValue(new StringList(new[] {"Classic", "Mercenary", "Red Card", "Bilgewater", "Kitty Cat", "High Command", "Darude Sandstorm", "Slay Belle", "Warring Kingdoms"})));
             }
@@ -516,7 +431,7 @@ namespace EasyCarryKatarina
 
         private static float GetMarkDamage()
         {
-            return (float) (15*spells[Spells.Q].Level + 0.15);
+            return (float) (0.0);
         }
 
         private static float GetDamage(Obj_AI_Base target)
@@ -544,83 +459,5 @@ namespace EasyCarryKatarina
             E,
             R
         }
-
-        #region Ultimate Block & Humanizer
-
-        private static void OnAnimation(GameObject sender, GameObjectPlayAnimationEventArgs args)
-        {
-            if (!sender.IsMe) return;
-            if (args.Animation == "Spell4")
-            {
-                _rBlock = true;
-            }
-            else if (args.Animation == "Run" || args.Animation == "Idle1" || args.Animation == "Attack2" ||
-                     args.Animation == "Attack1")
-            {
-                _rBlock = false;
-            }
-        }
-
-        private static void BeforeAttack(Orbwalking.BeforeAttackEventArgs args)
-        {
-            if (args.Unit.IsMe)
-            {
-                args.Process = !_rBlock;
-            }
-        }
-
-        private static void Obj_AI_Hero_OnIssueOrder(Obj_AI_Base sender, GameObjectIssueOrderEventArgs args)
-        {
-            if (sender.IsMe)
-            {
-                args.Process = !_rBlock;
-            }
-        }
-
-        #endregion
-
-        #region WardJump
-
-        private static InventorySlot GetBestWardSlot()
-        {
-            var slot = Items.GetWardSlot();
-            return slot == default(InventorySlot) ? null : slot;
-        }
-
-        private static void WardJump()
-        {
-            if (Environment.TickCount <= _lastPlaced + 3000 || !spells[Spells.E].IsReady()) return;
-
-            var cursorPos = Game.CursorPos;
-            var myPos = Player.ServerPosition;
-            var delta = cursorPos - myPos;
-
-            delta.Normalize();
-
-            var wardPosition = myPos + delta*(600 - 5);
-            var wardSlot = GetBestWardSlot();
-
-            if (wardSlot == null) return;
-
-            Items.UseItem((int) wardSlot.Id, wardPosition);
-            _lastWardPos = wardPosition;
-            _lastPlaced = Environment.TickCount;
-        }
-
-        private static void GameObject_OnCreate(GameObject sender, EventArgs args)
-        {
-            var minion = sender as Obj_AI_Minion;
-            if (minion == null || !spells[Spells.E].IsReady() || Environment.TickCount >= _lastPlaced + 300)
-                return;
-
-            var ward = minion;
-
-            if (ward.Name.ToLower().Contains("ward") && ward.Distance(_lastWardPos) < 500)
-            {
-                spells[Spells.E].CastOnUnit(ward);
-            }
-        }
-
-        #endregion
     }
 }
