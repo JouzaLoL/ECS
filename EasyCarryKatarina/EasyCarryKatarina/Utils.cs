@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using LeagueSharp;
 using LeagueSharp.Common;
+using LeagueSharp.SDK.Core.Extensions;
 using SharpDX;
 using Color = System.Drawing.Color;
 #endregion
@@ -22,17 +23,17 @@ namespace EasyCarryKatarina
             Console.WriteLine(r);
         }
 
-        #region Awareness - ToDo: Add spell database and show dangerous CC spells of enemy. https://github.com/ShineSharp/LeagueSharp/blob/master/MoonDiana/ShineCommon/Evader.cs
+        //#region Awareness - ToDo: Add spell database and show dangerous CC spells of enemy. https://github.com/ShineSharp/LeagueSharp/blob/master/MoonDiana/ShineCommon/Evader.cs
 
-        public static void OnDraw(EventArgs args)
-        {
-            foreach (var e in HeroManager.Enemies.Where(y => !y.IsDead && y.IsVisible))
-            {
-                
-            }
-        }
+        //public static void OnDraw(EventArgs args)
+        //{
+        //    foreach (var e in HeroManager.Enemies.Where(y => !y.IsDead && y.IsVisible))
+        //    {
+        //        if ()
+        //    }
+        //}
 
-        #endregion
+        //#endregion
 
         //Credits to Kortatu for Evade Yasuo WW detection
         #region Windwall 
@@ -56,7 +57,7 @@ namespace EasyCarryKatarina
                 !ObjectManager.Get<Obj_AI_Hero>()
                     .Any(
                         hero =>
-                            hero.IsValidTarget(float.MaxValue, false) &&
+                            Utility.IsValidTarget(hero, float.MaxValue, false) &&
                             hero.Team == ObjectManager.Player.Team && hero.ChampionName == "Yasuo"))
             {
                 return false;

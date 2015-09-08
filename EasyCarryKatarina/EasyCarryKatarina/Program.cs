@@ -25,7 +25,7 @@ namespace EasyCarryKatarina
         private static int _lastE;
         private static Vector3 _lastWardPos;
         private static int _lastPlaced;
-        private static int _lastick;
+        private static int _lasttick;
         // ReSharper disable once InconsistentNaming
         private static readonly Dictionary<Spells, Spell> spells = new Dictionary<Spells, Spell>
         {
@@ -76,9 +76,9 @@ namespace EasyCarryKatarina
             //Tick limiter
             if (_config.Item("misc.ticklimiter.enabled").GetValue<bool>())
             {
-                if (Environment.TickCount - _lastick < _config.Item("misc.ticklimiter.amount").GetValue<Slider>().Value)
+                if (Environment.TickCount - _lasttick < _config.Item("misc.ticklimiter.amount").GetValue<Slider>().Value)
                     return;
-                _lastick = Environment.TickCount;
+                _lasttick = Environment.TickCount;
             }
             
 
