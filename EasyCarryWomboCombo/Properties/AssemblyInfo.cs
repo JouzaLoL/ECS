@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("EasyCarryAkali")]
-[assembly: AssemblyDescription("EasyCarry Series - Akali")]
+[assembly: AssemblyTitle("EasyCarryWomboCombo")]
+[assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Jouza Solutions")]
-[assembly: AssemblyProduct("EasyCarryAkali")]
+[assembly: AssemblyCompany("")]
+[assembly: AssemblyProduct("EasyCarryWomboCombo")]
 [assembly: AssemblyCopyright("Copyright ©  2015")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
@@ -20,7 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("e4d3e546-2cec-4802-b92c-7f9484ef1d57")]
+[assembly: Guid("8fd5e786-6dd4-4487-a09f-2034ebdb1712")]
 
 // Version information for an assembly consists of the following four values:
 //
@@ -32,5 +32,5 @@ using System.Runtime.InteropServices;
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("5.13.0.4")]
-[assembly: AssemblyFileVersion("5.13.0.4")]
+[assembly: AssemblyVersion("1.0.0.0")]
+[assembly: AssemblyFileVersion("1.0.0.0")]
