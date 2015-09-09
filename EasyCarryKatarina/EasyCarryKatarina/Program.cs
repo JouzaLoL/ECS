@@ -143,6 +143,8 @@ namespace EasyCarryKatarina
 
         private static void Combo()
         {
+            if (_rBlock) return;
+
             var target = TargetSelector.GetTarget(spells[Spells.Q].Range, TargetSelector.DamageType.Magical);
             if (target == null) return;
 
