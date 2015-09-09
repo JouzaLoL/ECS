@@ -67,6 +67,8 @@ namespace EasyCarryKatarina
 
             Notifications.AddNotification("EasyCarry - Katarina Loaded", 5000);
             Notifications.AddNotification("Version: " + Assembly.GetExecutingAssembly().GetName().Version, 5000);
+
+            U.Log("Katarina initialized.");
         }
 
         private static void OnUpdate(EventArgs args)
@@ -74,7 +76,7 @@ namespace EasyCarryKatarina
             Player.SetSkin(Player.CharData.BaseSkinName, _config.Item("misc.skinchanger.enable").GetValue<bool>() ? _config.Item("misc.skinchanger.id").GetValue<StringList>().SelectedIndex : Player.BaseSkinId);
 
             //Tick limiter
-            if (_config.Item("misc.ticklimiter.enabled").GetValue<bool>())
+            if (_config.Item("misc.ticklimiter.enable").GetValue<bool>())
             {
                 if (Environment.TickCount - _lasttick < _config.Item("misc.ticklimiter.amount").GetValue<Slider>().Value)
                     return;
@@ -564,7 +566,7 @@ namespace EasyCarryKatarina
             {
                 misc.AddItem(new MenuItem("misc.skinchanger.enable", "Use SkinChanger").SetValue(false));
                 misc.AddItem(new MenuItem("misc.skinchanger.id", "Select skin:").SetValue(new StringList(new[] {"Classic", "Mercenary", "Red Card", "Bilgewater", "Kitty Cat", "High Command", "Darude Sandstorm", "Slay Belle", "Warring Kingdoms"})));
-                misc.AddItem(new MenuItem("misc.ticklimiter.enabled", "Enable Tick Limiter")).SetValue(true);
+                misc.AddItem(new MenuItem("misc.ticklimiter.enable", "Enable Tick Limiter")).SetValue(true);
                 misc.AddItem(new MenuItem("misc.ticklimiter.amount", "TickLimiter amount")).SetValue(new Slider(100, 0, 500));
             }
             _config.AddSubMenu(misc);
