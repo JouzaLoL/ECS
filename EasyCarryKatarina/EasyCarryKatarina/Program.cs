@@ -29,7 +29,7 @@ namespace EasyCarryKatarina
         // ReSharper disable once InconsistentNaming
         private static readonly Dictionary<Spells, Spell> spells = new Dictionary<Spells, Spell>
         {
-            {Spells.Q, new Spell(SpellSlot.Q, 675)},
+            {Spells.Q, new Spell(SpellSlot.Q, Player.Spellbook.GetSpell(SpellSlot.Q).SData.CastRange)},
             {Spells.W, new Spell(SpellSlot.W, 375)},
             {Spells.E, new Spell(SpellSlot.E, 700)},
             {Spells.R, new Spell(SpellSlot.R, 550)}
@@ -308,14 +308,35 @@ namespace EasyCarryKatarina
         private static void Lasthit()
         {
             var minions = MinionManager.GetMinions(spells[Spells.Q].Range);
+            var useQ = _config.Item("farm.useQ").GetValue<bool>();
+            var useW = _config.Item("farm.useW").GetValue<bool>();
+            var useE = _config.Item("farm.useE").GetValue<bool>();
 
-            foreach (var spell in spells.Values)
+            
+            if (useQ && spells[Spells.Q].IsReady())
             {
-                var m = minions.FirstOrDefault(x => spell.IsKillable(x));
-                var e = _config.Item("farm.use" + spell.Slot).GetValue<bool>();
-                if (m == null || !e || Player.IsWindingUp) return;
-                spell.CastOnUnit(m);
+                var qm = minions.FirstOrDefault(y => spells[Spells.Q].IsInRange(y) && spells[Spells.Q].IsKillable(y));
+                if (qm != null)
+                    spells[Spells.Q].Cast(qm);
             }
+
+            if (useW && spells[Spells.W].IsReady())
+            {
+                var wm = minions.FirstOrDefault(y => spells[Spells.W].IsInRange(y) && spells[Spells.W].IsKillable(y));
+                var qwm = minions.FirstOrDefault(y => spells[Spells.W].IsInRange(y) && y.HasBuff("KatarinaQMark") && y.Health < spells[Spells.Q].GetDamage(y) + GetMarkDamage());
+                if (wm != null)
+                    spells[Spells.W].Cast();
+                if (qwm != null)
+                    spells[Spells.W].Cast();
+            }
+
+            if (useE && spells[Spells.E].IsReady())
+            {
+                var em = minions.FirstOrDefault(y => spells[Spells.E].IsInRange(y) && spells[Spells.E].IsKillable(y));
+                if (em != null)
+                    spells[Spells.E].Cast(em);
+            }
+
         }
 
         private static void Flee()
@@ -352,13 +373,15 @@ namespace EasyCarryKatarina
         {
             var l = _config.Item("legit.enabled").GetValue<bool>();
             var random = _config.Item("legit.random").GetValue<bool>();
+            var randomMin = _config.Item("legit.random.min").GetValue<Slider>().Value;
+            var randomMax = _config.Item("legit.random.max").GetValue<Slider>().Value;
             var d = _config.Item("legit.delayE").GetValue<Slider>().Value;
             if (l)
             {
                 if (random)
                 {
                     var r = new Random();
-                    var rnd = r.Next(0, 1000);
+                    var rnd = r.Next(randomMin, randomMax);
                     if (Environment.TickCount > _lastE + rnd)
                         spells[Spells.E].Cast(target);
                 }
@@ -495,8 +518,10 @@ namespace EasyCarryKatarina
             var legit = new Menu("[Katarina] Legit Menu", "katarina.legit");
             {
                 legit.AddItem(new MenuItem("legit.enabled", "Enable Legit Mode")).SetValue(true);
-                legit.AddItem(new MenuItem("legit.random", "Random E Delay")).SetValue(true);
                 legit.AddItem(new MenuItem("legit.delayE", "E Delay")).SetValue(new Slider(750, 0, 1000));
+                legit.AddItem(new MenuItem("legit.random", "Random E Delay")).SetValue(true);
+                legit.AddItem(new MenuItem("legit.random.min", "Minimum Random Delay")).SetValue(new Slider(100, 0, 1000));
+                legit.AddItem(new MenuItem("legit.random.max", "Maximum Random Delay")).SetValue(new Slider(100, 0, 1000));              
             }
             _config.AddSubMenu(legit);
 
@@ -565,7 +590,7 @@ namespace EasyCarryKatarina
 
             if (spells[Spells.Q].IsReady()) dmg += GetMarkDamage();
 
-            if (_igniteSlot == SpellSlot.Unknown || Player.Spellbook.CanUseSpell(_igniteSlot) != SpellState.Ready) dmg += (float) Player.GetSummonerSpellDamage(target, Damage.SummonerSpell.Ignite);
+            if (_igniteSlot != SpellSlot.Unknown || Player.Spellbook.CanUseSpell(_igniteSlot) == SpellState.Ready) dmg += (float) Player.GetSummonerSpellDamage(target, Damage.SummonerSpell.Ignite);
 
             return dmg;
         }
