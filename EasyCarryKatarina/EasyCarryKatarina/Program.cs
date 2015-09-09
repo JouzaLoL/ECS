@@ -75,6 +75,8 @@ namespace EasyCarryKatarina
         {
             Player.SetSkin(Player.CharData.BaseSkinName, _config.Item("misc.skinchanger.enable").GetValue<bool>() ? _config.Item("misc.skinchanger.id").GetValue<StringList>().SelectedIndex : Player.BaseSkinId);
 
+            if (Player.IsDead) return;
+
             //Tick limiter
             if (_config.Item("misc.ticklimiter.enable").GetValue<bool>())
             {
@@ -82,9 +84,8 @@ namespace EasyCarryKatarina
                     return;
                 _lasttick = Environment.TickCount;
             }
-            
 
-            if (Player.IsDead) return;
+            if (Player.CountEnemiesInRange(spells[Spells.R].Range) < 1) _rBlock = false;
 
             if (_rBlock || Player.IsChannelingImportantSpell() || Player.HasBuff("katarinar"))
             {
@@ -155,8 +156,6 @@ namespace EasyCarryKatarina
             var useE = _config.Item("combo.useE").GetValue<bool>();
             var useR = _config.Item("combo.useR").GetValue<bool>();
             var useItems = _config.Item("combo.useItems").GetValue<bool>();
-
-            if (Player.CountEnemiesInRange(spells[Spells.R].Range) < 1) _rBlock = false;
             
             if (U.GetQCollision(target))
             {
@@ -345,6 +344,7 @@ namespace EasyCarryKatarina
         {
             var mode = _config.Item("flee.mode").GetValue<StringList>().SelectedIndex;
             var wardjump = _config.Item("flee.useWardJump").GetValue<bool>();
+            Drawing.DrawCircle(Game.CursorPos, 300, Color.Red);
 
             switch (mode)
             {
