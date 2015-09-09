@@ -345,22 +345,22 @@ namespace EasyCarryKatarina
         {
             var mode = _config.Item("flee.mode").GetValue<StringList>().SelectedIndex;
             var wardjump = _config.Item("flee.useWardJump").GetValue<bool>();
-            var cursorpos = LeagueSharp.Common.Utils.GetCursorPos().To3D();
+            var cursorpos = Game.CursorPos;
             var drawrange = _config.Item("flee.draw").GetValue<bool>();
             var range = _config.Item("flee.range").GetValue<Slider>().Value;
             var color = _config.Item("flee.color").GetValue<Circle>().Color;
             if (drawrange)
-                Drawing.DrawCircle(cursorpos, range, color);
+                Render.Circle.DrawCircle(cursorpos, range, color);
 
             switch (mode)
             {
                 case 0: //To mouse
                     var m = MinionManager.GetMinions(cursorpos, range, MinionTypes.All, MinionTeam.All).OrderBy(x => x.Distance(cursorpos)).FirstOrDefault(j => spells[Spells.E].IsInRange(j));
-                    var wards = ObjectManager.Get<Obj_AI_Base>().Where(x => x.Name.ToLower().Contains("ward")).OrderBy(x => x.Distance(cursorpos)).FirstOrDefault(x => Player.Distance(x.Position) <= spells[Spells.E].Range && x.Distance(cursorpos) < range);
+                    var wards = (Obj_AI_Base)ObjectManager.Get<GameObject>().Where(x => x.Name.ToLower().Contains("ward")).FirstOrDefault(x => spells[Spells.E].IsInRange(x));
                     var h = ObjectManager.Get<Obj_AI_Hero>().FirstOrDefault(x => x.IsTargetable && x.IsEnemy && spells[Spells.W].CanCast(x));
                     if (h != null && spells[Spells.W].CanCast(h)) spells[Spells.W].Cast();
                     if (m != null && spells[Spells.E].CanCast(m)) spells[Spells.E].CastOnUnit(m);
-                    else if (wards != null && spells[Spells.E].CanCast(wards)) spells[Spells.E].CastOnUnit(wards);
+                    else if (wards != null && spells[Spells.E].CanCast(wards) && wards.Distance(cursorpos) <= range) spells[Spells.E].CastOnUnit(wards);
                     else if (wardjump)
                     {
                         WardJump();
