@@ -68,6 +68,7 @@ namespace EasyCarryKatarina
             Notifications.AddNotification("EasyCarry - Katarina Loaded", 5000);
             Notifications.AddNotification("Version: " + Assembly.GetExecutingAssembly().GetName().Version, 5000);
 
+            Console.Clear();
             U.Log("Katarina initialized.");
         }
 
@@ -344,13 +345,18 @@ namespace EasyCarryKatarina
         {
             var mode = _config.Item("flee.mode").GetValue<StringList>().SelectedIndex;
             var wardjump = _config.Item("flee.useWardJump").GetValue<bool>();
-            Drawing.DrawCircle(Game.CursorPos, 300, Color.Red);
+            var cursorpos = LeagueSharp.Common.Utils.GetCursorPos().To3D();
+            var drawrange = _config.Item("flee.draw").GetValue<bool>();
+            var range = _config.Item("flee.range").GetValue<Slider>().Value;
+            var color = _config.Item("flee.color").GetValue<Circle>().Color;
+            if (drawrange)
+                Drawing.DrawCircle(cursorpos, range, color);
 
             switch (mode)
             {
                 case 0: //To mouse
-                    var m = MinionManager.GetMinions(Game.CursorPos, 300, MinionTypes.All, MinionTeam.All).FirstOrDefault(j => spells[Spells.E].IsInRange(j));
-                    var wards = ObjectManager.Get<Obj_AI_Base>().Where(x => x.Name.ToLower().Contains("ward")).FirstOrDefault(x => Player.Distance(x.Position) <= spells[Spells.E].Range && x.Distance(Game.CursorPos) < 300);
+                    var m = MinionManager.GetMinions(cursorpos, range, MinionTypes.All, MinionTeam.All).OrderBy(x => x.Distance(cursorpos)).FirstOrDefault(j => spells[Spells.E].IsInRange(j));
+                    var wards = ObjectManager.Get<Obj_AI_Base>().Where(x => x.Name.ToLower().Contains("ward")).OrderBy(x => x.Distance(cursorpos)).FirstOrDefault(x => Player.Distance(x.Position) <= spells[Spells.E].Range && x.Distance(cursorpos) < range);
                     var h = ObjectManager.Get<Obj_AI_Hero>().FirstOrDefault(x => x.IsTargetable && x.IsEnemy && spells[Spells.W].CanCast(x));
                     if (h != null && spells[Spells.W].CanCast(h)) spells[Spells.W].Cast();
                     if (m != null && spells[Spells.E].CanCast(m)) spells[Spells.E].CastOnUnit(m);
@@ -514,7 +520,10 @@ namespace EasyCarryKatarina
 
                 flee.AddItem(y.SetValue(new KeyBind("A".ToCharArray()[0], KeyBindType.Press)));
                 flee.AddItem(new MenuItem("flee.mode", "Flee Mode:")).SetValue(new StringList(new[] {"To Mouse", "Auto"}));
+                flee.AddItem(new MenuItem("flee.range", "Search Range")).SetValue(new Slider(300, 100, 1000));
                 flee.AddItem(new MenuItem("flee.useWardJump", "Use WardJump")).SetValue(true);
+                flee.AddItem(new MenuItem("flee.draw", "Draw Search Range")).SetValue(true);
+                flee.AddItem(new MenuItem("flee.color", "Search Range Color")).SetValue(new Circle(true, Color.White));
             }
             _config.AddSubMenu(flee);
 
