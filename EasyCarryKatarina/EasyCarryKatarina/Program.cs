@@ -516,9 +516,7 @@ namespace EasyCarryKatarina
 
             var flee = new Menu("[Katarina] Flee Settings", "katarina.flee");
             {
-                var y = flee.AddItem(new MenuItem("flee.key", "Flee Key: "));
-
-                flee.AddItem(y.SetValue(new KeyBind("A".ToCharArray()[0], KeyBindType.Press)));
+                flee.AddItem(new MenuItem("flee.key", "Flee Key: ").SetValue(new KeyBind("A".ToCharArray()[0], KeyBindType.Press)));
                 flee.AddItem(new MenuItem("flee.mode", "Flee Mode:")).SetValue(new StringList(new[] {"To Mouse", "Auto"}));
                 flee.AddItem(new MenuItem("flee.range", "Search Range")).SetValue(new Slider(300, 100, 1000));
                 flee.AddItem(new MenuItem("flee.useWardJump", "Use WardJump")).SetValue(true);
