@@ -325,7 +325,7 @@ namespace EasyCarryKatarina
             if (useW && spells[Spells.W].IsReady())
             {
                 var wm = minions.FirstOrDefault(y => spells[Spells.W].IsInRange(y) && spells[Spells.W].IsKillable(y));
-                var qwm = minions.FirstOrDefault(y => spells[Spells.W].IsInRange(y) && y.HasBuff("KatarinaQMark") && y.Health < spells[Spells.Q].GetDamage(y) + GetMarkDamage());
+                var qwm = minions.FirstOrDefault(y => spells[Spells.W].IsInRange(y) && y.HasBuff("KatarinaQMark") && y.Health < spells[Spells.W].GetDamage(y) + GetMarkDamage());
                 if (wm != null)
                     spells[Spells.W].Cast();
                 if (qwm != null)
