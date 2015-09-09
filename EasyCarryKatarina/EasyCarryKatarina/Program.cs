@@ -469,6 +469,7 @@ namespace EasyCarryKatarina
                 autoharass.AddItem(new MenuItem("autoharass.useQ", "Use Q")).SetValue(true);
                 autoharass.AddItem(new MenuItem("autoharass.useW", "Use W")).SetValue(true);
             }
+            _config.AddSubMenu(autoharass);
 
             var farm = new Menu("[Katarina] Farm Settings", "katarina.farm");
             {
