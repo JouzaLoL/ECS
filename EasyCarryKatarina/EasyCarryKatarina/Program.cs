@@ -30,9 +30,9 @@ namespace EasyCarryKatarina
         private static readonly Dictionary<Spells, Spell> spells = new Dictionary<Spells, Spell>
         {
             {Spells.Q, new Spell(SpellSlot.Q, Player.Spellbook.GetSpell(SpellSlot.Q).SData.CastRange)},
-            {Spells.W, new Spell(SpellSlot.W, 375)},
-            {Spells.E, new Spell(SpellSlot.E, 700)},
-            {Spells.R, new Spell(SpellSlot.R, 550)}
+            {Spells.W, new Spell(SpellSlot.W, Player.Spellbook.GetSpell(SpellSlot.W).SData.CastRange)},
+            {Spells.E, new Spell(SpellSlot.E, Player.Spellbook.GetSpell(SpellSlot.E).SData.CastRange)},
+            {Spells.R, new Spell(SpellSlot.R, Player.Spellbook.GetSpell(SpellSlot.R).SData.CastRange)}
         };
 
         private static void Main(string[] args)
@@ -157,21 +157,42 @@ namespace EasyCarryKatarina
             var useE = _config.Item("combo.useE").GetValue<bool>();
             var useR = _config.Item("combo.useR").GetValue<bool>();
             var useItems = _config.Item("combo.useItems").GetValue<bool>();
+            var mode = _config.Item("combo.mode").GetValue<StringList>().SelectedIndex;
+
+            switch (mode)
+            {
+                case 0: //Automatic
+                    if (U.GetQCollision(target))
+                    {
+                        if (useE && spells[Spells.E].CanCast(target))
+                            CastE(target);
+                        if (useQ && spells[Spells.Q].CanCast(target))
+                            spells[Spells.Q].CastOnUnit(target);
+                    }
+                    else
+                    {
+                        if (useQ && spells[Spells.Q].CanCast(target))
+                            spells[Spells.Q].CastOnUnit(target);
+                        if (useE && spells[Spells.E].CanCast(target) && target.HasBuff("KatarinaQMark"))
+                            CastE(target);
+                    }
+                    break;
+
+                case 1: //EQ
+                    if (useE && spells[Spells.E].CanCast(target))
+                        CastE(target);
+                    if (useQ && spells[Spells.Q].CanCast(target))
+                        spells[Spells.Q].CastOnUnit(target);
+                    break;
+
+                case 2: //QE
+                    if (useQ && spells[Spells.Q].CanCast(target))
+                        spells[Spells.Q].CastOnUnit(target);
+                    if (useE && spells[Spells.E].CanCast(target) && target.HasBuff("KatarinaQMark"))
+                        CastE(target);
+                    break;
+            }
             
-            if (U.GetQCollision(target))
-            {
-                if (useE && spells[Spells.E].CanCast(target))
-                    CastE(target);
-                if (useQ && spells[Spells.Q].CanCast(target))
-                    spells[Spells.Q].CastOnUnit(target);               
-            }
-            else
-            {
-                if (useQ && spells[Spells.Q].CanCast(target))
-                    spells[Spells.Q].CastOnUnit(target);
-                if (useE && spells[Spells.E].CanCast(target) && target.HasBuff("KatarinaQMark"))
-                    CastE(target);
-            }
 
             if (useItems)
                 UseItems(target);
@@ -214,8 +235,48 @@ namespace EasyCarryKatarina
             var useq = _config.Item("killsteal.useQ").GetValue<bool>();
             var usew = _config.Item("killsteal.useW").GetValue<bool>();
             var usee = _config.Item("killsteal.useE").GetValue<bool>();
+            var ultks = _config.Item("killsteal.ultks").GetValue<bool>();
+            var mode = _config.Item("killsteal.mode").GetValue<StringList>().SelectedIndex;
+            var waitformark = _config.Item("killsteal.waitformark").GetValue<bool>();
 
-            var objAiHeroes = e as Obj_AI_Hero[] ?? e.ToArray();
+            var aiHeroes = e as Obj_AI_Hero[] ?? e.ToArray();
+
+            if (_rBlock && ultks) //KSing while Ulting
+            {
+                var target = aiHeroes.FirstOrDefault(x => x.Health < spells[Spells.Q].GetDamage(x) + spells[Spells.W].GetDamage(x) + spells[Spells.E].GetDamage(x) - 50);
+                if (target != null && spells[Spells.Q].CanCast(target) && spells[Spells.W].IsReady() && spells[Spells.E].CanCast(target))
+                {
+                    if (mode == 0)
+                    {
+                        spells[Spells.E].Cast(target);
+                        spells[Spells.Q].Cast(target);
+                        if (waitformark && target.HasBuff("katarinaqmark"))
+                        {
+                            spells[Spells.W].Cast();
+                        }
+                        else if (!waitformark)
+                        {
+                            spells[Spells.W].Cast();
+                        }
+
+                    }
+                    else
+                    {
+                        spells[Spells.Q].Cast(target);
+                        if (waitformark && target.HasBuff("katarinaqmark"))
+                        {
+                            spells[Spells.E].Cast(target);
+                        }
+                        else if (!waitformark)
+                        {
+                            spells[Spells.E].Cast(target);
+                        }
+                        spells[Spells.W].Cast();
+                    }
+                }
+            }
+
+            var objAiHeroes = e as Obj_AI_Hero[] ?? aiHeroes.ToArray();
             var qtarget = objAiHeroes.FirstOrDefault(y => spells[Spells.Q].IsKillable(y));
             if (useq && spells[Spells.Q].CanCast(qtarget) && qtarget != null)
             {
@@ -346,11 +407,8 @@ namespace EasyCarryKatarina
             var mode = _config.Item("flee.mode").GetValue<StringList>().SelectedIndex;
             var wardjump = _config.Item("flee.useWardJump").GetValue<bool>();
             var cursorpos = Game.CursorPos;
-            var drawrange = _config.Item("flee.draw").GetValue<bool>();
             var range = _config.Item("flee.range").GetValue<Slider>().Value;
-            var color = _config.Item("flee.color").GetValue<Circle>().Color;
-            if (drawrange)
-                Render.Circle.DrawCircle(cursorpos, range, color);
+            
 
             switch (mode)
             {
@@ -428,8 +486,13 @@ namespace EasyCarryKatarina
             if (drawE)
                 if (spells[Spells.E].Level > 0)
                     Render.Circle.DrawCircle(ObjectManager.Player.Position, spells[Spells.E].Range, spells[Spells.E].IsReady() ? readyColor : cdColor);
-            
 
+            var drawrange = _config.Item("flee.draw").GetValue<bool>();
+            var range = _config.Item("flee.range").GetValue<Slider>().Value;
+            var cursorpos = Game.CursorPos;
+            var color = _config.Item("flee.color").GetValue<Circle>().Color;
+            if (drawrange)
+                Render.Circle.DrawCircle(cursorpos, range, color);
         }
 
         private static void InitMenu()
@@ -445,6 +508,7 @@ namespace EasyCarryKatarina
 
             var combo = new Menu("[Katarina] Combo Settings", "katarina.combo");
             {
+                combo.AddItem(new MenuItem("combo.mode", "Combo Mode:")).SetValue(new StringList(new[] {"Automatic", "EQ", "QE"}, 1));
                 combo.AddItem(new MenuItem("combo.useItems", "Use Items")).SetValue(true);
                 combo.AddItem(new MenuItem("combo.useQ", "Use Q")).SetValue(true);
                 combo.AddItem(new MenuItem("combo.useW", "Use W")).SetValue(true);
@@ -460,6 +524,10 @@ namespace EasyCarryKatarina
                 killsteal.AddItem(new MenuItem("killsteal.useW", "Use W")).SetValue(true);
                 killsteal.AddItem(new MenuItem("killsteal.useE", "Use E")).SetValue(true);
                 killsteal.AddItem(new MenuItem("killsteal.useIgnite", "Use Ignite")).SetValue(true);
+                killsteal.AddItem(new MenuItem("placeholder", "============================"));
+                killsteal.AddItem(new MenuItem("killsteal.ultks", "KS when Ulting")).SetValue(true);
+                killsteal.AddItem(new MenuItem("killsteal.mode", "Ult KS Mode")).SetValue(new StringList(new[] {"EQW", "QEW"}));
+                killsteal.AddItem(new MenuItem("killsteal.waitformark", "Wait for Q mark")).SetValue(true);
             }
             _config.AddSubMenu(killsteal);
 
@@ -589,7 +657,27 @@ namespace EasyCarryKatarina
 
         private static float GetDamage(Obj_AI_Base target)
         {
-            var dmg = spells.Values.Where(x => x.IsReady()).Aggregate<Spell, float>(0, (current, spell) => current + spell.GetDamage(target));
+            var dmg = 0f;
+
+            if (spells[Spells.Q].IsReady())
+            {
+                dmg += spells[Spells.Q].GetDamage(target);
+            }
+
+            if (spells[Spells.W].IsReady())
+            {
+                dmg += spells[Spells.W].GetDamage(target);
+            }
+
+            if (spells[Spells.E].IsReady())
+            {
+                dmg += spells[Spells.E].GetDamage(target);
+            }
+
+            if (spells[Spells.R].IsReady() || (ObjectManager.Player.Spellbook.GetSpell(SpellSlot.R).State == SpellState.Surpressed && spells[Spells.R].Level > 0))
+            {
+                dmg += spells[Spells.R].GetDamage(target);
+            }
 
             var cutlass = ItemData.Bilgewater_Cutlass.GetItem();
             var hextech = ItemData.Hextech_Gunblade.GetItem();

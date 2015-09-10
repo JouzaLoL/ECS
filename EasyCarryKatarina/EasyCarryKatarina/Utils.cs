@@ -5,7 +5,6 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using LeagueSharp;
 using LeagueSharp.Common;
-using LeagueSharp.SDK.Core.Extensions;
 using SharpDX;
 using Color = System.Drawing.Color;
 #endregion
@@ -57,7 +56,7 @@ namespace EasyCarryKatarina
                 !ObjectManager.Get<Obj_AI_Hero>()
                     .Any(
                         hero =>
-                            Utility.IsValidTarget(hero, float.MaxValue, false) &&
+                            hero.IsValidTarget(float.MaxValue, false) &&
                             hero.Team == ObjectManager.Player.Team && hero.ChampionName == "Yasuo"))
             {
                 return false;
