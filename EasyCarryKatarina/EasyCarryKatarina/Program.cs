@@ -132,12 +132,12 @@ namespace EasyCarryKatarina
         private static void ResourceManager()
         {
             if (Player.IsRecalling() || Player.InFountain() || Player.IsDead) return;
-            var hp = (Player.MaxHealth/Player.Health)*100;
+            var hp = (Player.Health/Player.MaxHealth)*100;
             var limit = _config.Item("resmanager.hp.slider").GetValue<Slider>().Value;
             var counter = _config.Item("resmanager.counter").GetValue<bool>();
             var potion = ItemData.Health_Potion.GetItem();
 
-            if (!potion.IsOwned(Player) || !potion.IsReady() ) return;
+            if (!potion.IsOwned(Player) || !potion.IsReady()) return;
             if (hp < limit || (counter && Player.HasBuff("SummonerIgnite")))
                 potion.Cast();
         }
@@ -410,11 +410,11 @@ namespace EasyCarryKatarina
             switch (mode)
             {
                 case 0: //To mouse
-                    var m = MinionManager.GetMinions(cursorpos, range, MinionTypes.All, MinionTeam.All).OrderBy(x => x.Distance(cursorpos)).FirstOrDefault(j => spells[Spells.E].IsInRange(j));
+                    var m = MinionManager.GetMinions(cursorpos, range, MinionTypes.All, MinionTeam.All).OrderBy(x => x.Distance(cursorpos)).FirstOrDefault(j => spells[Spells.E].CanCast(j));
                     var wards = ObjectManager.Get<GameObject>().Where(x => x.Name.ToLower().Contains("ward")).FirstOrDefault(x => spells[Spells.E].IsInRange(x));
                     var h = ObjectManager.Get<Obj_AI_Hero>().FirstOrDefault(x => x.IsTargetable && x.IsEnemy && spells[Spells.W].CanCast(x));
                     if (h != null && spells[Spells.W].CanCast(h)) spells[Spells.W].Cast();
-                    if (m != null && spells[Spells.E].CanCast(m)) spells[Spells.E].CastOnUnit(m);
+                    if (m != null) spells[Spells.E].Cast(m);
                     else if (wards != null && spells[Spells.E].CanCast((Obj_AI_Base)wards) && wards.Position.Distance(cursorpos) < range) spells[Spells.E].Cast((Obj_AI_Base)wards);
                     else if (wardjump)
                     {
@@ -484,6 +484,7 @@ namespace EasyCarryKatarina
                 if (spells[Spells.E].Level > 0)
                     Render.Circle.DrawCircle(ObjectManager.Player.Position, spells[Spells.E].Range, spells[Spells.E].IsReady() ? readyColor : cdColor);
 
+            //Flee Drawing
             var drawrange = _config.Item("flee.draw").GetValue<bool>();
             var range = _config.Item("flee.range").GetValue<Slider>().Value;
             var cursorpos = Game.CursorPos;
@@ -671,7 +672,7 @@ namespace EasyCarryKatarina
                 dmg += spells[Spells.E].GetDamage(target);
             }
             
-            if (Player.Spellbook.GetSpell(SpellSlot.R).State.ToString() != "40" && spells[Spells.R].Level > 0)
+            if (spells[Spells.R].IsReady() || (ObjectManager.Player.Spellbook.GetSpell(SpellSlot.R).State == SpellState.Surpressed && spells[Spells.R].Level > 0))
             {
                 dmg += spells[Spells.R].GetDamage(target) * 8;
             }
