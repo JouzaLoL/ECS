@@ -76,7 +76,7 @@ namespace EasyCarryKatarina
 
             if (Player.IsDead) return;
 
-            if (Player.IsChannelingImportantSpell())
+            if (Player.IsChannelingImportantSpell() && Player.CountEnemiesInRange(550) > 0)
             {
                 _orbwalker.SetAttack(false);
                 _orbwalker.SetMovement(false);
