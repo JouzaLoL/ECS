@@ -60,11 +60,7 @@ namespace EasyCarryKatarina
             //Drawing.OnDraw += U.OnDraw;
 
             Obj_AI_Base.OnPlayAnimation += OnAnimation;
-            Obj_AI_Base.OnProcessSpellCast += OnSpellCast;
             Obj_AI_Base.OnIssueOrder += Obj_AI_Hero_OnIssueOrder;
-            GameObject.OnCreate += GameObject_OnCreate;
-            Orbwalking.BeforeAttack += BeforeAttack;
-
             GameObject.OnCreate += GameObject_OnCreate;
 
             Notifications.AddNotification("EasyCarry - Katarina Loaded", 5000);
@@ -80,9 +76,7 @@ namespace EasyCarryKatarina
 
             if (Player.IsDead) return;
 
-            if (Player.CountEnemiesInRange(540) < 1) _rBlock = false;
-
-            if (_rBlock)
+            if (Player.IsChannelingImportantSpell())
             {
                 _orbwalker.SetAttack(false);
                 _orbwalker.SetMovement(false);
@@ -133,7 +127,6 @@ namespace EasyCarryKatarina
 
             var resmananger = _config.Item("resmanager.enabled").GetValue<bool>();
             if (resmananger) ResourceManager();
-           
         }
 
         private static void ResourceManager()
@@ -413,11 +406,6 @@ namespace EasyCarryKatarina
             var wardjump = _config.Item("flee.useWardJump").GetValue<bool>();
             var cursorpos = Game.CursorPos;
             var range = _config.Item("flee.range").GetValue<Slider>().Value;
-
-            foreach (var go in ObjectManager.Get<GameObject>().Where(x => spells[Spells.E].IsInRange(x)))
-            {
-                Console.WriteLine(go.Name);                
-            }
 
             switch (mode)
             {
@@ -712,12 +700,6 @@ namespace EasyCarryKatarina
 
         #region Ultimate Block
 
-        private static void OnSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args)
-        {
-            if (!sender.IsMe) return;
-            if (args.SData.Name == "katarinar") _rBlock = true;
-        }
-
         private static void OnAnimation(GameObject sender, GameObjectPlayAnimationEventArgs args)
         {
             if (!sender.IsMe) return;
@@ -729,14 +711,6 @@ namespace EasyCarryKatarina
                      args.Animation == "Attack1")
             {
                 _rBlock = false;
-            }
-        }
-
-        private static void BeforeAttack(Orbwalking.BeforeAttackEventArgs args)
-        {
-            if (args.Unit.IsMe)
-            {
-                args.Process = !_rBlock;
             }
         }
 
