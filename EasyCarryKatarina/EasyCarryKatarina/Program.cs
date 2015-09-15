@@ -57,7 +57,6 @@ namespace EasyCarryKatarina
 
             Game.OnUpdate += OnUpdate;
             Drawing.OnDraw += Drawings;
-            //Drawing.OnDraw += U.OnDraw;
 
             Obj_AI_Base.OnPlayAnimation += OnAnimation;
             Obj_AI_Base.OnIssueOrder += Obj_AI_Hero_OnIssueOrder;
@@ -76,7 +75,8 @@ namespace EasyCarryKatarina
 
             if (Player.IsDead) return;
 
-            if (Player.IsChannelingImportantSpell() && Player.CountEnemiesInRange(550) > 0)
+            var h = HeroManager.Enemies.Where(y => spells[Spells.R].IsInRange(y));
+            if (Player.IsChannelingImportantSpell() && h.Any())
             {
                 _orbwalker.SetAttack(false);
                 _orbwalker.SetMovement(false);
@@ -165,13 +165,17 @@ namespace EasyCarryKatarina
                             CastE(target);
                         if (useQ && spells[Spells.Q].CanCast(target))
                             spells[Spells.Q].CastOnUnit(target);
+                        if (useW && spells[Spells.W].CanCast(target) && (target.HasBuff("KatarinaQMark") || (!U.QinAir() && !spells[Spells.Q].IsReady())))
+                            spells[Spells.W].Cast();
                     }
                     else
                     {
                         if (useQ && spells[Spells.Q].CanCast(target))
                             spells[Spells.Q].CastOnUnit(target);
-                        if (useE && spells[Spells.E].CanCast(target))
+                        if (useE && spells[Spells.E].CanCast(target) && (target.HasBuff("KatarinaQMark") || (!U.QinAir() && !spells[Spells.Q].IsReady())))
                             CastE(target);
+                        if (useW && spells[Spells.W].CanCast(target))
+                            spells[Spells.W].Cast();
                     }
                     break;
 
@@ -180,14 +184,14 @@ namespace EasyCarryKatarina
                         CastE(target);
                     if (useQ && spells[Spells.Q].CanCast(target))
                         spells[Spells.Q].CastOnUnit(target);
-                    if (useW && spells[Spells.W].CanCast(target))
+                    if (useW && spells[Spells.W].CanCast(target) && (target.HasBuff("KatarinaQMark") || (!U.QinAir() && !spells[Spells.Q].IsReady())))
                         spells[Spells.W].Cast();
                     break;
 
                 case 2: //QE
                     if (useQ && spells[Spells.Q].CanCast(target))
                         spells[Spells.Q].CastOnUnit(target);
-                    if (useE && spells[Spells.E].CanCast(target))
+                    if (useE && spells[Spells.E].CanCast(target) && (target.HasBuff("KatarinaQMark") || (!U.QinAir() && !spells[Spells.Q].IsReady())))
                         CastE(target);
                     if (useW && spells[Spells.W].CanCast(target))
                         spells[Spells.W].Cast();
@@ -217,11 +221,11 @@ namespace EasyCarryKatarina
                     break;
                 case 1:
                     if (spells[Spells.Q].CanCast(target)) spells[Spells.Q].Cast(target);
-                    if (spells[Spells.W].CanCast(target)) spells[Spells.W].Cast();
+                    if (spells[Spells.W].CanCast(target) && (target.HasBuff("KatarinaQMark") || (!U.QinAir() && !spells[Spells.Q].IsReady()))) spells[Spells.W].Cast();
                     break;
                 case 2:
                     if (spells[Spells.Q].CanCast(target)) spells[Spells.Q].Cast(target);
-                    if (spells[Spells.E].CanCast(target) && Player.HasBuff("KatarinaQMark")) spells[Spells.E].Cast(target);
+                    if (spells[Spells.E].CanCast(target) && (target.HasBuff("KatarinaQMark") || (!U.QinAir() && !spells[Spells.Q].IsReady()))) spells[Spells.E].Cast(target);
                     if (spells[Spells.W].CanCast(target)) spells[Spells.W].Cast();
                     break;
             }
@@ -235,7 +239,7 @@ namespace EasyCarryKatarina
             var usee = _config.Item("killsteal.useE").GetValue<bool>();
             var ultks = _config.Item("killsteal.ultks").GetValue<bool>();
             var mode = _config.Item("killsteal.mode").GetValue<StringList>().SelectedIndex;
-            var waitformark = _config.Item("killsteal.waitformark").GetValue<bool>();
+            var waitformark = _config.Item("killsteal.procQ").GetValue<bool>();
 
             var aiHeroes = e as Obj_AI_Hero[] ?? e.ToArray();
 
@@ -248,7 +252,7 @@ namespace EasyCarryKatarina
                     {
                         spells[Spells.E].Cast(target);
                         spells[Spells.Q].Cast(target);
-                        if (waitformark && target.HasBuff("katarinaqmark"))
+                        if (waitformark && (target.HasBuff("KatarinaQMark") || (!U.QinAir() && !spells[Spells.Q].IsReady())))
                         {
                             spells[Spells.W].Cast();
                         }
@@ -261,7 +265,7 @@ namespace EasyCarryKatarina
                     else
                     {
                         spells[Spells.Q].Cast(target);
-                        if (waitformark && target.HasBuff("katarinaqmark"))
+                        if (waitformark && (target.HasBuff("KatarinaQMark") || (!U.QinAir() && !spells[Spells.Q].IsReady())))
                         {
                             spells[Spells.E].Cast(target);
                         }
@@ -312,7 +316,7 @@ namespace EasyCarryKatarina
             if (target == null) return;
 
             if (useq && spells[Spells.Q].CanCast(target)) spells[Spells.Q].Cast(target);
-            if (usew && spells[Spells.W].CanCast(target)) spells[Spells.W].Cast();
+            if (usew && spells[Spells.W].CanCast(target) && (target.HasBuff("KatarinaQMark") || (!U.QinAir() && !spells[Spells.Q].IsReady()))) spells[Spells.W].Cast();
         }
 
         private static void UseItems(Obj_AI_Base target)
@@ -330,7 +334,7 @@ namespace EasyCarryKatarina
         private static void Laneclear()
         {
             var m = MinionManager.GetMinions(spells[Spells.Q].Range, MinionTypes.All, MinionTeam.Enemy, MinionOrderTypes.MaxHealth).FirstOrDefault();
-            if (m == null) return;
+            if (m == null || U.QinAir()) return;
             var w = MinionManager.GetMinions(spells[Spells.W].Range).Count;
             var count = _config.Item("laneclear.whitcount").GetValue<Slider>().Value;
             var useQ = _config.Item("laneclear.useQ").GetValue<bool>();
@@ -338,7 +342,7 @@ namespace EasyCarryKatarina
             var useE = _config.Item("laneclear.useE").GetValue<bool>();
 
             if (useQ && spells[Spells.Q].CanCast(m)) spells[Spells.Q].CastOnUnit(m);
-            if (useW && spells[Spells.W].CanCast(m) && w >= count - 1) spells[Spells.W].Cast();
+            if (useW && spells[Spells.W].CanCast(m) && w >= count) spells[Spells.W].Cast();
             if (useE && spells[Spells.E].CanCast(m) && !m.UnderTurret(true)) spells[Spells.E].CastOnUnit(m);
         }
 
@@ -355,19 +359,21 @@ namespace EasyCarryKatarina
             if (mode == 0)
             {
                 if (useq && spells[Spells.Q].CanCast(m)) spells[Spells.Q].CastOnUnit(m);
-                if (usee && spells[Spells.E].CanCast(m)) spells[Spells.E].CastOnUnit(m);
+                if (usee && spells[Spells.E].CanCast(m) && (m.HasBuff("KatarinaQMark") || (!U.QinAir() && !spells[Spells.Q].IsReady()))) spells[Spells.E].CastOnUnit(m);
                 if (usew && spells[Spells.W].CanCast(m)) spells[Spells.W].Cast();
             }
             else
             {
                 if (usee && spells[Spells.E].CanCast(m)) spells[Spells.E].CastOnUnit(m);
                 if (useq && spells[Spells.Q].CanCast(m)) spells[Spells.Q].CastOnUnit(m);
-                if (usew && spells[Spells.W].CanCast(m)) spells[Spells.W].Cast();
+                if (usew && spells[Spells.W].CanCast(m) && (m.HasBuff("KatarinaQMark") || (!U.QinAir() && !spells[Spells.Q].IsReady()))) spells[Spells.W].Cast();
             }
         }
 
         private static void Lasthit()
         {
+            if (Player.IsWindingUp || U.QinAir()) return;
+
             var minions = MinionManager.GetMinions(spells[Spells.Q].Range);
             var useQ = _config.Item("farm.useQ").GetValue<bool>();
             var useW = _config.Item("farm.useW").GetValue<bool>();
@@ -384,10 +390,10 @@ namespace EasyCarryKatarina
             if (useW && spells[Spells.W].IsReady())
             {
                 var wm = minions.FirstOrDefault(y => spells[Spells.W].IsInRange(y) && spells[Spells.W].IsKillable(y));
-                var qwm = minions.FirstOrDefault(y => spells[Spells.W].IsInRange(y) && y.HasBuff("KatarinaQMark") && y.Health < spells[Spells.W].GetDamage(y) + GetMarkDamage());
-                if (wm != null && !Player.IsWindingUp)
+                var qwm = minions.FirstOrDefault(y => spells[Spells.W].IsInRange(y) && y.HasBuff("KatarinaQMark") && y.Health < spells[Spells.W].GetDamage(y) + GetMarkDamage(y));
+                if (wm != null)
                     spells[Spells.W].Cast();
-                if (qwm != null && !Player.IsWindingUp)
+                if (qwm != null)
                     spells[Spells.W].Cast();
             }
 
@@ -410,12 +416,12 @@ namespace EasyCarryKatarina
             switch (mode)
             {
                 case 0: //To mouse
-                    var m = MinionManager.GetMinions(cursorpos, range, MinionTypes.All, MinionTeam.All).OrderBy(x => x.Distance(cursorpos)).FirstOrDefault(j => spells[Spells.E].CanCast(j));
-                    var wards = ObjectManager.Get<GameObject>().Where(x => x.Name.ToLower().Contains("ward")).FirstOrDefault(x => spells[Spells.E].IsInRange(x));
+                    var m = MinionManager.GetMinions(cursorpos, range, MinionTypes.All, MinionTeam.All).OrderBy(x => x.Distance(cursorpos)).FirstOrDefault(j => spells[Spells.E].IsInRange(j));
+                    var wards = ObjectManager.Get<GameObject>().Where(x => x.Name.ToLower().Contains("ward") && !x.Name.Contains(".troy")).FirstOrDefault(x => spells[Spells.E].IsInRange(x));
                     var h = ObjectManager.Get<Obj_AI_Hero>().FirstOrDefault(x => x.IsTargetable && x.IsEnemy && spells[Spells.W].CanCast(x));
                     if (h != null && spells[Spells.W].CanCast(h)) spells[Spells.W].Cast();
+                    if (wards != null && spells[Spells.E].IsInRange(wards) && wards.Position.Distance(cursorpos) < range) spells[Spells.E].Cast((Obj_AI_Base)wards);
                     if (m != null) spells[Spells.E].Cast(m);
-                    else if (wards != null && spells[Spells.E].CanCast((Obj_AI_Base)wards) && wards.Position.Distance(cursorpos) < range) spells[Spells.E].Cast((Obj_AI_Base)wards);
                     else if (wardjump)
                     {
                         WardJump();
@@ -522,10 +528,10 @@ namespace EasyCarryKatarina
                 killsteal.AddItem(new MenuItem("killsteal.useW", "Use W")).SetValue(true);
                 killsteal.AddItem(new MenuItem("killsteal.useE", "Use E")).SetValue(true);
                 killsteal.AddItem(new MenuItem("killsteal.useIgnite", "Use Ignite")).SetValue(true);
-                killsteal.AddItem(new MenuItem("placeholder", "============================"));
+                killsteal.AddItem(new MenuItem("placeholder", ""));
                 killsteal.AddItem(new MenuItem("killsteal.ultks", "KS when Ulting")).SetValue(true);
                 killsteal.AddItem(new MenuItem("killsteal.mode", "Ult KS Mode")).SetValue(new StringList(new[] {"EQW", "QEW"}));
-                killsteal.AddItem(new MenuItem("killsteal.waitformark", "Wait for Q mark")).SetValue(true);
+                killsteal.AddItem(new MenuItem("killsteal.procQ", "Proc Q")).SetValue(true);
             }
             _config.AddSubMenu(killsteal);
 
@@ -648,9 +654,9 @@ namespace EasyCarryKatarina
             _config.AddToMainMenu();
         }
 
-        private static float GetMarkDamage()
+        private static float GetMarkDamage(Obj_AI_Base target)
         {
-            return (float) (15*spells[Spells.Q].Level + 0.15);
+            return spells[Spells.Q].GetDamage(target, 1);
         }
 
         private static float GetDamage(Obj_AI_Base target)
@@ -684,7 +690,7 @@ namespace EasyCarryKatarina
 
             if (hextech.IsReady() && hextech.IsOwned(Player) && hextech.IsInRange(target)) dmg += (float) Player.GetItemDamage(target, Damage.DamageItems.Hexgun);
 
-            if (spells[Spells.Q].IsReady()) dmg += GetMarkDamage();
+            if (spells[Spells.Q].IsReady()) dmg += GetMarkDamage(target);
 
             if (_igniteSlot != SpellSlot.Unknown || Player.Spellbook.CanUseSpell(_igniteSlot) == SpellState.Ready) dmg += (float) Player.GetSummonerSpellDamage(target, Damage.SummonerSpell.Ignite);
 

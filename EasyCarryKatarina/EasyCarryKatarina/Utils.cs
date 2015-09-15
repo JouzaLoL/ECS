@@ -22,15 +22,11 @@ namespace EasyCarryKatarina
             Console.WriteLine(r);
         }
 
-        //#region Awareness - ToDo: Add spell database and show dangerous CC spells of enemy. https://github.com/ShineSharp/LeagueSharp/blob/master/MoonDiana/ShineCommon/Evader.cs
-
-        //public static void OnDraw(EventArgs args)
-        //{
-        //    foreach (var e in HeroManager.Enemies.Where(y => !y.IsDead && y.IsVisible))
-        //    {
-        //        if ()
-        //    }
-        //}
+        //Credits to Mantas :)
+        public static bool QinAir()
+        {
+            return ObjectManager.Get<MissileClient>().Any(missile => missile.SData.Name == "KatarinaQMis" || missile.SData.Name == "KatarinaQ" && missile.SpellCaster.IsMe);
+        }
 
         //#endregion
 
