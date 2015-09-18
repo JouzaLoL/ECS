@@ -429,11 +429,11 @@ namespace EasyCarryKatarina
                     Player.IssueOrder(GameObjectOrder.MoveTo, Game.CursorPos);
                     break;
                 case 1: //Auto
-                    var minion = MinionManager.GetMinions(spells[Spells.E].Range, MinionTypes.All, MinionTeam.All);
+                    var jumpobjects = ObjectManager.Get<GameObject>().Where(p => spells[Spells.E].IsInRange(p));
                     var enemies = HeroManager.Enemies.Where(e => e.IsVisible);
-                    var best = minion.OrderByDescending(l => enemies.OrderByDescending(e => e.Distance(l.Position)).FirstOrDefault().Distance(l.Position)).FirstOrDefault();
-                    if (best != null && spells[Spells.E].CanCast(best))
-                        spells[Spells.E].CastOnUnit(best);               
+                    var best = jumpobjects.OrderByDescending(l => enemies.OrderByDescending(e => e.Distance(l.Position)).FirstOrDefault().Distance(l.Position)).FirstOrDefault();
+                    if (best != null && spells[Spells.E].IsReady())
+                        spells[Spells.E].Cast((Obj_AI_Base)best);               
                     break;
             }
         }
@@ -666,6 +666,7 @@ namespace EasyCarryKatarina
             if (spells[Spells.Q].IsReady())
             {
                 dmg += spells[Spells.Q].GetDamage(target);
+                dmg += GetMarkDamage(target);
             }
 
             if (spells[Spells.W].IsReady())
@@ -678,7 +679,7 @@ namespace EasyCarryKatarina
                 dmg += spells[Spells.E].GetDamage(target);
             }
             
-            if (spells[Spells.R].IsReady() || (ObjectManager.Player.Spellbook.GetSpell(SpellSlot.R).State == SpellState.Surpressed && spells[Spells.R].Level > 0))
+            if (spells[Spells.R].IsReady() || (Player.Spellbook.GetSpell(SpellSlot.R).State == SpellState.Surpressed && spells[Spells.R].Level > 0))
             {
                 dmg += spells[Spells.R].GetDamage(target) * 8;
             }
@@ -687,10 +688,7 @@ namespace EasyCarryKatarina
             var hextech = ItemData.Hextech_Gunblade.GetItem();
 
             if (cutlass.IsReady() && cutlass.IsOwned(Player)) dmg += (float) Player.GetItemDamage(target, Damage.DamageItems.Bilgewater);
-
-            if (hextech.IsReady() && hextech.IsOwned(Player) && hextech.IsInRange(target)) dmg += (float) Player.GetItemDamage(target, Damage.DamageItems.Hexgun);
-
-            if (spells[Spells.Q].IsReady()) dmg += GetMarkDamage(target);
+            if (hextech.IsReady() && hextech.IsOwned(Player)) dmg += (float) Player.GetItemDamage(target, Damage.DamageItems.Hexgun);
 
             if (_igniteSlot != SpellSlot.Unknown || Player.Spellbook.CanUseSpell(_igniteSlot) == SpellState.Ready) dmg += (float) Player.GetSummonerSpellDamage(target, Damage.SummonerSpell.Ignite);
 
