@@ -74,8 +74,8 @@ namespace EasyCarryKatarina
             Player.SetSkin(Player.CharData.BaseSkinName, _config.Item("misc.skinchanger.enable").GetValue<bool>() ? _config.Item("misc.skinchanger.id").GetValue<StringList>().SelectedIndex : Player.BaseSkinId);
 
             if (Player.IsDead) return;
-
-            var h = HeroManager.Enemies.Where(y => spells[Spells.R].IsInRange(y));
+            var h = HeroManager.Enemies.Where(y => y.Distance(Player) <= 550 && y.IsValidTarget());
+            
             if (Player.IsChannelingImportantSpell() && h.Any())
             {
                 _orbwalker.SetAttack(false);
@@ -284,6 +284,11 @@ namespace EasyCarryKatarina
             {
                 spells[Spells.Q].Cast(qtarget);
             }
+            else if (useq && qtarget != null && Player.Distance(qtarget) < spells[Spells.E].Range + spells[Spells.Q].Range && spells[Spells.Q].IsReady())
+            {
+                WardJump(qtarget);
+                spells[Spells.Q].Cast(qtarget);
+            }
 
             var wtarget = objAiHeroes.FirstOrDefault(y => spells[Spells.W].IsKillable(y));
             if (usew && spells[Spells.W].CanCast(wtarget) && wtarget != null)
@@ -428,13 +433,13 @@ namespace EasyCarryKatarina
                     }
                     Player.IssueOrder(GameObjectOrder.MoveTo, Game.CursorPos);
                     break;
-                case 1: //Auto
-                    var jumpobjects = ObjectManager.Get<GameObject>().Where(p => spells[Spells.E].IsInRange(p));
-                    var enemies = HeroManager.Enemies.Where(e => e.IsVisible);
-                    var best = jumpobjects.OrderByDescending(l => enemies.OrderByDescending(e => e.Distance(l.Position)).FirstOrDefault().Distance(l.Position)).FirstOrDefault();
-                    if (best != null && spells[Spells.E].IsReady())
-                        spells[Spells.E].Cast((Obj_AI_Base)best);               
-                    break;
+                //case 1: //Auto
+                //    var jumpobjects = ObjectManager.Get<GameObject>().Where(p => spells[Spells.E].IsInRange(p) && p.Name.ToLower().Contains("ward"));
+                //    var enemies = HeroManager.Enemies.Where(e => e.IsVisible);
+                //    var best = jumpobjects.OrderByDescending(l => enemies.OrderByDescending(e => e.Distance(l.Position)).FirstOrDefault().Distance(l.Position)).FirstOrDefault();
+                //    if (best != null && spells[Spells.E].IsReady())
+                //        spells[Spells.E].Cast((Obj_AI_Base)best);               
+                //    break;
             }
         }
 
@@ -491,6 +496,8 @@ namespace EasyCarryKatarina
                     Render.Circle.DrawCircle(ObjectManager.Player.Position, spells[Spells.E].Range, spells[Spells.E].IsReady() ? readyColor : cdColor);
 
             //Flee Drawing
+            var mode = _config.Item("flee.mode").GetValue<StringList>().SelectedIndex;
+            if (mode != 0) return;
             var drawrange = _config.Item("flee.draw").GetValue<bool>();
             var range = _config.Item("flee.range").GetValue<Slider>().Value;
             var cursorpos = Game.CursorPos;
@@ -723,7 +730,7 @@ namespace EasyCarryKatarina
         {
             if (sender.IsMe)
             {
-                args.Process = !_rBlock;
+                args.Process = !(_rBlock && HeroManager.Enemies.Any(y => y.Distance(Player) <= 550 && y.IsValidTarget()));
             }
         }
 
@@ -753,6 +760,26 @@ namespace EasyCarryKatarina
             if (wardSlot == null) return;
 
             Items.UseItem((int) wardSlot.Id, wardPosition);
+            _lastWardPos = wardPosition;
+            _lastPlaced = Environment.TickCount;
+        }
+
+        private static void WardJump(Obj_AI_Base target)
+        {
+            if (Environment.TickCount <= _lastPlaced + 3000 || !spells[Spells.E].IsReady()) return;
+
+            var myPos = Player.ServerPosition;
+            var targetPos = target.ServerPosition;
+            var delta = myPos - targetPos;
+
+            delta.Normalize();
+
+            var wardPosition = myPos + delta * (600 - 5);
+            var wardSlot = GetBestWardSlot();
+
+            if (wardSlot == null) return;
+
+            Items.UseItem((int)wardSlot.Id, wardPosition);
             _lastWardPos = wardPosition;
             _lastPlaced = Environment.TickCount;
         }
