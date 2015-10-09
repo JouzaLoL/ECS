@@ -1,6 +1,7 @@
 ﻿#region
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using LeagueSharp;
@@ -11,7 +12,7 @@ using Color = System.Drawing.Color;
 
 namespace EasyCarryKatarina
 {
-    internal class Utils
+    public static class Utils
     {
         private static int _wallCastT;
         private static Vector2 _yasuoWallCastedPos;
@@ -22,10 +23,35 @@ namespace EasyCarryKatarina
             Console.WriteLine(r);
         }
 
+        public static bool CanKill(this Spell spell, Obj_AI_Base target)
+        {
+            return spell.CanCast(target) && spell.IsKillable(target);
+        }
+
+        public static bool ProcQ(Obj_AI_Base target)
+        {
+            return target.HasBuff("KatarinaQMark") || (!QinAir() && !Program.spells[Program.Spells.Q].IsReady());
+        }
+
+        public static List<string> Jumpobjects = new List<string>
+        {
+            "ward", "minion", "champion"
+        };
+
+        public static bool CanJumpTo(GameObject obj)
+        {
+            return Jumpobjects.Any(y => y.Contains(obj.Name.ToLower()));
+        }
+        
+        public static bool RHeroBlock()
+        {
+            return HeroManager.Enemies.Any(y => y.Distance(Program.Player) <= 550 && y.IsValidTarget());
+        }
+
         //Credits to Mantas :)
         public static bool QinAir()
         {
-            return ObjectManager.Get<MissileClient>().Any(missile => missile.SData.Name == "KatarinaQMis" || missile.SData.Name == "KatarinaQ" && missile.SpellCaster.IsMe);
+            return ObjectManager.Get<MissileClient>().Any(missile =>missile.SData.Name == "KatarinaQ" && missile.SpellCaster.IsMe);
         }
 
         //#endregion

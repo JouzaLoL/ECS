@@ -18,8 +18,11 @@ namespace EasyCarryKatarina
     internal class Program
     {
         private static Orbwalking.Orbwalker _orbwalker;
-        private static SpellSlot _igniteSlot;
         private static Menu _config;
+        private static Spell _ignite;
+        private static Items.Item _cutlass;
+        private static Items.Item _hextech;
+        private static Items.Item _ludens;
         public static readonly Obj_AI_Hero Player = ObjectManager.Player;
         private static bool _rBlock;
         private static int _lastE;
@@ -27,7 +30,7 @@ namespace EasyCarryKatarina
         private static int _lastPlaced;
         private static int _lasttick;
         // ReSharper disable once InconsistentNaming
-        private static readonly Dictionary<Spells, Spell> spells = new Dictionary<Spells, Spell>
+        public static readonly Dictionary<Spells, Spell> spells = new Dictionary<Spells, Spell>
         {
             { Spells.Q, new Spell(SpellSlot.Q, 675)},
             { Spells.W, new Spell(SpellSlot.W, 375)},
@@ -48,10 +51,15 @@ namespace EasyCarryKatarina
                 return;
             }
 
-            _igniteSlot = Player.GetSpellSlot("SummonerDot");
+            _ignite = new Spell(Player.GetSpellSlot("SummonerDot"), 550);
+            _ignite.SetTargetted(0.1f, float.MaxValue);
 
             spells[Spells.Q].SetTargetted((float)0.3, 400);
-            spells[Spells.R].SetCharged("KatarinaR", "KatarinaR", 550, 550, 1.0f);           
+            spells[Spells.R].SetCharged("KatarinaR", "KatarinaR", 550, 550, 1.0f);
+
+            _cutlass = ItemData.Bilgewater_Cutlass.GetItem();
+            _hextech = ItemData.Hextech_Gunblade.GetItem();
+            _ludens = ItemData.Ludens_Echo.GetItem();
 
             InitMenu();
 
@@ -71,12 +79,11 @@ namespace EasyCarryKatarina
 
         private static void OnUpdate(EventArgs args)
         {
-            Player.SetSkin(Player.CharData.BaseSkinName, _config.Item("misc.skinchanger.enable").GetValue<bool>() ? _config.Item("misc.skinchanger.id").GetValue<StringList>().SelectedIndex : Player.BaseSkinId);
+            //Player.SetSkin(Player.CharData.BaseSkinName, _config.Item("misc.skinchanger.enable").GetValue<bool>() ? _config.Item("misc.skinchanger.id").GetValue<StringList>().SelectedIndex : Player.BaseSkinId);
 
             if (Player.IsDead) return;
-            var h = HeroManager.Enemies.Where(y => y.Distance(Player) <= 550 && y.IsValidTarget());
             
-            if (Player.IsChannelingImportantSpell() && h.Any())
+            if (Player.IsChannelingImportantSpell() && U.RHeroBlock())
             {
                 _orbwalker.SetAttack(false);
                 _orbwalker.SetMovement(false);
@@ -114,7 +121,6 @@ namespace EasyCarryKatarina
                     Lasthit();
                     break;
             }
-           
 
             var flee = _config.Item("flee.key").GetValue<KeyBind>().Active;
             if (flee) Flee();
@@ -131,7 +137,7 @@ namespace EasyCarryKatarina
 
         private static void ResourceManager()
         {
-            if (Player.IsRecalling() || Player.InFountain() || Player.IsDead) return;
+            if (Player.IsRecalling() || Player.InFountain()) return;
             var hp = (Player.Health/Player.MaxHealth)*100;
             var limit = _config.Item("resmanager.hp.slider").GetValue<Slider>().Value;
             var counter = _config.Item("resmanager.counter").GetValue<bool>();
@@ -141,14 +147,14 @@ namespace EasyCarryKatarina
             if (hp < limit || (counter && Player.HasBuff("SummonerIgnite")))
                 potion.Cast();
         }
-
+        
         private static void Combo()
         {
-            if (_rBlock) return;
+            if (_rBlock && U.RHeroBlock()) return;
 
             var target = TargetSelector.GetTarget(spells[Spells.Q].Range, TargetSelector.DamageType.Magical);
             if (target == null) return;
-
+            
             var useQ = _config.Item("combo.useQ").GetValue<bool>();
             var useW = _config.Item("combo.useW").GetValue<bool>();
             var useE = _config.Item("combo.useE").GetValue<bool>();
@@ -165,14 +171,14 @@ namespace EasyCarryKatarina
                             CastE(target);
                         if (useQ && spells[Spells.Q].CanCast(target))
                             spells[Spells.Q].CastOnUnit(target);
-                        if (useW && spells[Spells.W].CanCast(target) && (target.HasBuff("KatarinaQMark") || (!U.QinAir() && !spells[Spells.Q].IsReady())))
+                        if (useW && spells[Spells.W].CanCast(target) && U.ProcQ(target))
                             spells[Spells.W].Cast();
                     }
                     else
                     {
                         if (useQ && spells[Spells.Q].CanCast(target))
                             spells[Spells.Q].CastOnUnit(target);
-                        if (useE && spells[Spells.E].CanCast(target) && (target.HasBuff("KatarinaQMark") || (!U.QinAir() && !spells[Spells.Q].IsReady())))
+                        if (useE && spells[Spells.E].CanCast(target) && U.ProcQ(target))
                             CastE(target);
                         if (useW && spells[Spells.W].CanCast(target))
                             spells[Spells.W].Cast();
@@ -184,14 +190,14 @@ namespace EasyCarryKatarina
                         CastE(target);
                     if (useQ && spells[Spells.Q].CanCast(target))
                         spells[Spells.Q].CastOnUnit(target);
-                    if (useW && spells[Spells.W].CanCast(target) && (target.HasBuff("KatarinaQMark") || (!U.QinAir() && !spells[Spells.Q].IsReady())))
+                    if (useW && spells[Spells.W].CanCast(target) && U.ProcQ(target))
                         spells[Spells.W].Cast();
                     break;
 
                 case 2: //QE
                     if (useQ && spells[Spells.Q].CanCast(target))
                         spells[Spells.Q].CastOnUnit(target);
-                    if (useE && spells[Spells.E].CanCast(target) && (target.HasBuff("KatarinaQMark") || (!U.QinAir() && !spells[Spells.Q].IsReady())))
+                    if (useE && spells[Spells.E].CanCast(target) && U.ProcQ(target))
                         CastE(target);
                     if (useW && spells[Spells.W].CanCast(target))
                         spells[Spells.W].Cast();
@@ -221,11 +227,11 @@ namespace EasyCarryKatarina
                     break;
                 case 1:
                     if (spells[Spells.Q].CanCast(target)) spells[Spells.Q].Cast(target);
-                    if (spells[Spells.W].CanCast(target) && (target.HasBuff("KatarinaQMark") || (!U.QinAir() && !spells[Spells.Q].IsReady()))) spells[Spells.W].Cast();
+                    if (spells[Spells.W].CanCast(target) && U.ProcQ(target)) spells[Spells.W].Cast();
                     break;
                 case 2:
                     if (spells[Spells.Q].CanCast(target)) spells[Spells.Q].Cast(target);
-                    if (spells[Spells.E].CanCast(target) && (target.HasBuff("KatarinaQMark") || (!U.QinAir() && !spells[Spells.Q].IsReady()))) spells[Spells.E].Cast(target);
+                    if (spells[Spells.E].CanCast(target) && U.ProcQ(target)) spells[Spells.E].Cast(target);
                     if (spells[Spells.W].CanCast(target)) spells[Spells.W].Cast();
                     break;
             }
@@ -237,6 +243,7 @@ namespace EasyCarryKatarina
             var useq = _config.Item("killsteal.useQ").GetValue<bool>();
             var usew = _config.Item("killsteal.useW").GetValue<bool>();
             var usee = _config.Item("killsteal.useE").GetValue<bool>();
+            var usei = _config.Item("killsteal.useI").GetValue<bool>();
             var ultks = _config.Item("killsteal.ultks").GetValue<bool>();
             var mode = _config.Item("killsteal.mode").GetValue<StringList>().SelectedIndex;
             var waitformark = _config.Item("killsteal.procQ").GetValue<bool>();
@@ -252,7 +259,7 @@ namespace EasyCarryKatarina
                     {
                         spells[Spells.E].Cast(target);
                         spells[Spells.Q].Cast(target);
-                        if (waitformark && (target.HasBuff("KatarinaQMark") || (!U.QinAir() && !spells[Spells.Q].IsReady())))
+                        if (waitformark && U.ProcQ(target))
                         {
                             spells[Spells.W].Cast();
                         }
@@ -265,7 +272,7 @@ namespace EasyCarryKatarina
                     else
                     {
                         spells[Spells.Q].Cast(target);
-                        if (waitformark && (target.HasBuff("KatarinaQMark") || (!U.QinAir() && !spells[Spells.Q].IsReady())))
+                        if (waitformark && U.ProcQ(target))
                         {
                             spells[Spells.E].Cast(target);
                         }
@@ -290,6 +297,12 @@ namespace EasyCarryKatarina
                 spells[Spells.Q].Cast(qtarget);
             }
 
+            var qwtarget = objAiHeroes.FirstOrDefault(y => y.Health < spells[Spells.W].GetDamage(y) + GetMarkDamage(y) && y.HasBuff("KatarinaQMark"));
+            if (usew && spells[Spells.W].CanCast(qwtarget) && qwtarget != null)
+            {
+                spells[Spells.W].Cast();
+            }
+
             var wtarget = objAiHeroes.FirstOrDefault(y => spells[Spells.W].IsKillable(y));
             if (usew && spells[Spells.W].CanCast(wtarget) && wtarget != null)
             {
@@ -302,10 +315,10 @@ namespace EasyCarryKatarina
                 CastE(etarget);
             }
 
-            var itarget = objAiHeroes.FirstOrDefault(y => Player.GetSpellDamage(y, _igniteSlot) > y.Health && y.Distance(Player) <= 600);
-            if (Player.Spellbook.CanUseSpell(_igniteSlot) == SpellState.Ready && itarget != null)
+            var itarget = objAiHeroes.FirstOrDefault(y => Player.GetSummonerSpellDamage(y, Damage.SummonerSpell.Ignite) > y.Health);
+            if (itarget != null && _ignite.CanCast(itarget) && usei && !spells[Spells.Q].CanKill(itarget) && !spells[Spells.W].CanKill(itarget) && spells[Spells.E].CanKill(itarget))
             {
-                Player.Spellbook.CastSpell(_igniteSlot, itarget);
+                _ignite.Cast(itarget);
             }
         }
 
@@ -321,19 +334,16 @@ namespace EasyCarryKatarina
             if (target == null) return;
 
             if (useq && spells[Spells.Q].CanCast(target)) spells[Spells.Q].Cast(target);
-            if (usew && spells[Spells.W].CanCast(target) && (target.HasBuff("KatarinaQMark") || (!U.QinAir() && !spells[Spells.Q].IsReady()))) spells[Spells.W].Cast();
+            if (usew && spells[Spells.W].CanCast(target) && U.ProcQ(target)) spells[Spells.W].Cast();
         }
 
         private static void UseItems(Obj_AI_Base target)
         {
-            var cutlass = ItemData.Bilgewater_Cutlass.GetItem();
-            var hextech = ItemData.Hextech_Gunblade.GetItem();
+            if (_cutlass.IsReady() && _cutlass.IsOwned(Player) && _cutlass.IsInRange(target))
+                _cutlass.Cast(target);
 
-            if (cutlass.IsReady() && cutlass.IsOwned(Player) && cutlass.IsInRange(target))
-                cutlass.Cast(target);
-
-            if (hextech.IsReady() && hextech.IsOwned(Player) && hextech.IsInRange(target))
-                hextech.Cast(target);
+            if (_hextech.IsReady() && _hextech.IsOwned(Player) && _hextech.IsInRange(target))
+                _hextech.Cast(target);
         }
 
         private static void Laneclear()
@@ -388,7 +398,7 @@ namespace EasyCarryKatarina
             if (useQ && spells[Spells.Q].IsReady())
             {
                 var qm = minions.FirstOrDefault(y => spells[Spells.Q].IsInRange(y) && spells[Spells.Q].IsKillable(y));
-                if (qm != null && !Player.IsWindingUp)
+                if (qm != null && !spells[Spells.W].CanKill(qm))
                     spells[Spells.Q].Cast(qm);
             }
 
@@ -396,7 +406,7 @@ namespace EasyCarryKatarina
             {
                 var wm = minions.FirstOrDefault(y => spells[Spells.W].IsInRange(y) && spells[Spells.W].IsKillable(y));
                 var qwm = minions.FirstOrDefault(y => spells[Spells.W].IsInRange(y) && y.HasBuff("KatarinaQMark") && y.Health < spells[Spells.W].GetDamage(y) + GetMarkDamage(y));
-                if (wm != null)
+                if (wm != null && !spells[Spells.Q].CanKill(wm))
                     spells[Spells.W].Cast();
                 if (qwm != null)
                     spells[Spells.W].Cast();
@@ -433,13 +443,13 @@ namespace EasyCarryKatarina
                     }
                     Player.IssueOrder(GameObjectOrder.MoveTo, Game.CursorPos);
                     break;
-                //case 1: //Auto
-                //    var jumpobjects = ObjectManager.Get<GameObject>().Where(p => spells[Spells.E].IsInRange(p) && p.Name.ToLower().Contains("ward"));
-                //    var enemies = HeroManager.Enemies.Where(e => e.IsVisible);
-                //    var best = jumpobjects.OrderByDescending(l => enemies.OrderByDescending(e => e.Distance(l.Position)).FirstOrDefault().Distance(l.Position)).FirstOrDefault();
-                //    if (best != null && spells[Spells.E].IsReady())
-                //        spells[Spells.E].Cast((Obj_AI_Base)best);               
-                //    break;
+                case 1: //Auto
+                    var jumpobjects = ObjectManager.Get<GameObject>().Where(p => spells[Spells.E].IsInRange(p) && U.CanJumpTo(p));
+                    var enemies = HeroManager.Enemies.Where(e => e.IsVisible);
+                    var best = jumpobjects.OrderByDescending(l => enemies.OrderByDescending(e => e.Distance(l.Position)).FirstOrDefault().Distance(l.Position)).FirstOrDefault();
+                    if (best != null && spells[Spells.E].IsReady())
+                        spells[Spells.E].Cast((Obj_AI_Base)best);
+                    break;
             }
         }
 
@@ -534,7 +544,7 @@ namespace EasyCarryKatarina
                 killsteal.AddItem(new MenuItem("killsteal.useQ", "Use Q")).SetValue(true);
                 killsteal.AddItem(new MenuItem("killsteal.useW", "Use W")).SetValue(true);
                 killsteal.AddItem(new MenuItem("killsteal.useE", "Use E")).SetValue(true);
-                killsteal.AddItem(new MenuItem("killsteal.useIgnite", "Use Ignite")).SetValue(true);
+                killsteal.AddItem(new MenuItem("killsteal.useI", "Use Ignite")).SetValue(true);
                 killsteal.AddItem(new MenuItem("placeholder", ""));
                 killsteal.AddItem(new MenuItem("killsteal.ultks", "KS when Ulting")).SetValue(true);
                 killsteal.AddItem(new MenuItem("killsteal.mode", "Ult KS Mode")).SetValue(new StringList(new[] {"EQW", "QEW"}));
@@ -610,7 +620,7 @@ namespace EasyCarryKatarina
                 legit.AddItem(new MenuItem("legit.delayE", "E Delay")).SetValue(new Slider(750, 0, 1000));
                 legit.AddItem(new MenuItem("legit.random", "Random E Delay")).SetValue(true);
                 legit.AddItem(new MenuItem("legit.random.min", "Minimum Random Delay")).SetValue(new Slider(100, 0, 1000));
-                legit.AddItem(new MenuItem("legit.random.max", "Maximum Random Delay")).SetValue(new Slider(100, 0, 1000));              
+                legit.AddItem(new MenuItem("legit.random.max", "Maximum Random Delay")).SetValue(new Slider(500, 0, 1000));              
             }
             _config.AddSubMenu(legit);
 
@@ -651,12 +661,21 @@ namespace EasyCarryKatarina
 
             var misc = new Menu("[Katarina] Misc Settings", "katarina.misc");
             {
-                misc.AddItem(new MenuItem("misc.skinchanger.enable", "Use SkinChanger").SetValue(false));
-                misc.AddItem(new MenuItem("misc.skinchanger.id", "Select skin:").SetValue(new StringList(new[] {"Classic", "Mercenary", "Red Card", "Bilgewater", "Kitty Cat", "High Command", "Darude Sandstorm", "Slay Belle", "Warring Kingdoms"})));
+                //misc.AddItem(new MenuItem("misc.skinchanger.enable", "Use SkinChanger").SetValue(false));
+                //misc.AddItem(new MenuItem("misc.skinchanger.id", "Select skin:").SetValue(new StringList(new[] {"Classic", "Mercenary", "Red Card", "Bilgewater", "Kitty Cat", "High Command", "Darude Sandstorm", "Slay Belle", "Warring Kingdoms"})));
                 misc.AddItem(new MenuItem("misc.ticklimiter.enable", "Enable Tick Limiter")).SetValue(true);
                 misc.AddItem(new MenuItem("misc.ticklimiter.amount", "TickLimiter amount")).SetValue(new Slider(100, 0, 500));
             }
             _config.AddSubMenu(misc);
+
+            var credits = new Menu("[Katarina] Credits", "katarina.credits");
+            {
+                credits.AddItem(new MenuItem("credits.by", "Made by Jouza"));
+                credits.AddItem(new MenuItem("credits.series", "This script is part of the EasyCarry Series"));
+                credits.AddItem(new MenuItem("credits.thanks", "A big thank you to the whole L# community"));
+                credits.AddItem(new MenuItem("credits.donations", "If you want to make a donation, send me a PM on joduska.me"));
+            }
+            _config.AddSubMenu(credits);
 
             _config.AddToMainMenu();
         }
@@ -691,14 +710,12 @@ namespace EasyCarryKatarina
                 dmg += spells[Spells.R].GetDamage(target) * 8;
             }
 
-            var cutlass = ItemData.Bilgewater_Cutlass.GetItem();
-            var hextech = ItemData.Hextech_Gunblade.GetItem();
+            if (_cutlass.IsReady() && _cutlass.IsOwned(Player)) dmg += (float) Player.GetItemDamage(target, Damage.DamageItems.Bilgewater);
+            if (_hextech.IsReady() && _hextech.IsOwned(Player)) dmg += (float) Player.GetItemDamage(target, Damage.DamageItems.Hexgun);
+            if (_ludens.IsOwned(Player) && Player.HasBuff("LudensEchoBuff")) dmg += (float)Player.GetItemDamage(target, Damage.DamageItems.Hexgun);
 
-            if (cutlass.IsReady() && cutlass.IsOwned(Player)) dmg += (float) Player.GetItemDamage(target, Damage.DamageItems.Bilgewater);
-            if (hextech.IsReady() && hextech.IsOwned(Player)) dmg += (float) Player.GetItemDamage(target, Damage.DamageItems.Hexgun);
-
-            if (_igniteSlot != SpellSlot.Unknown || Player.Spellbook.CanUseSpell(_igniteSlot) == SpellState.Ready) dmg += (float) Player.GetSummonerSpellDamage(target, Damage.SummonerSpell.Ignite);
-
+            if (_ignite.IsReady()) dmg += (float)Player.GetSummonerSpellDamage(target, Damage.SummonerSpell.Ignite);
+            
             return dmg;
         }
 
@@ -730,7 +747,7 @@ namespace EasyCarryKatarina
         {
             if (sender.IsMe)
             {
-                args.Process = !(_rBlock && HeroManager.Enemies.Any(y => y.Distance(Player) <= 550 && y.IsValidTarget()));
+                args.Process = !(_rBlock && U.RHeroBlock());
             }
         }
 
@@ -748,6 +765,10 @@ namespace EasyCarryKatarina
         {
             if (Environment.TickCount <= _lastPlaced + 3000 || !spells[Spells.E].IsReady()) return;
 
+            var wardSlot = GetBestWardSlot();
+
+            if (wardSlot == null) return;
+
             var cursorPos = Game.CursorPos;
             var myPos = Player.ServerPosition;
             var delta = cursorPos - myPos;
@@ -755,11 +776,8 @@ namespace EasyCarryKatarina
             delta.Normalize();
 
             var wardPosition = myPos + delta*(600 - 5);
-            var wardSlot = GetBestWardSlot();
 
-            if (wardSlot == null) return;
-
-            Items.UseItem((int) wardSlot.Id, wardPosition);
+            Items.UseItem((int)wardSlot.Id, wardPosition);
             _lastWardPos = wardPosition;
             _lastPlaced = Environment.TickCount;
         }
@@ -768,6 +786,9 @@ namespace EasyCarryKatarina
         {
             if (Environment.TickCount <= _lastPlaced + 3000 || !spells[Spells.E].IsReady()) return;
 
+            var wardSlot = GetBestWardSlot();
+            if (wardSlot == null) return;
+
             var myPos = Player.ServerPosition;
             var targetPos = target.ServerPosition;
             var delta = myPos - targetPos;
@@ -775,9 +796,6 @@ namespace EasyCarryKatarina
             delta.Normalize();
 
             var wardPosition = myPos + delta * (600 - 5);
-            var wardSlot = GetBestWardSlot();
-
-            if (wardSlot == null) return;
 
             Items.UseItem((int)wardSlot.Id, wardPosition);
             _lastWardPos = wardPosition;
