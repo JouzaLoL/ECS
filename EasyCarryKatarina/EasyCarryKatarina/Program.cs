@@ -546,6 +546,7 @@ namespace EasyCarryKatarina
                 killsteal.AddItem(new MenuItem("killsteal.useW", "Use W")).SetValue(true);
                 killsteal.AddItem(new MenuItem("killsteal.useE", "Use E")).SetValue(true);
                 killsteal.AddItem(new MenuItem("killsteal.useI", "Use Ignite")).SetValue(true);
+                killsteal.AddItem(new MenuItem("killsteal.useward", "Use Ward")).SetValue(false);
                 killsteal.AddItem(new MenuItem("placeholder", ""));
                 killsteal.AddItem(new MenuItem("killsteal.ultks", "KS when Ulting")).SetValue(true);
                 killsteal.AddItem(new MenuItem("killsteal.mode", "Ult KS Mode")).SetValue(new StringList(new[] {"EQW", "QEW"}));
