@@ -45,6 +45,7 @@ namespace EasyCarryKatarina
         
         public static bool RHeroBlock()
         {
+            
             return HeroManager.Enemies.Any(y => y.Distance(Program.Player) <= 550 && y.IsValidTarget());
         }
 

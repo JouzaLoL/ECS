@@ -82,7 +82,7 @@ namespace EasyCarryKatarina
             //Player.SetSkin(Player.CharData.BaseSkinName, _config.Item("misc.skinchanger.enable").GetValue<bool>() ? _config.Item("misc.skinchanger.id").GetValue<StringList>().SelectedIndex : Player.BaseSkinId);
 
             if (Player.IsDead) return;
-            
+
             if (Player.IsChannelingImportantSpell() && U.RHeroBlock())
             {
                 _orbwalker.SetAttack(false);
@@ -154,7 +154,7 @@ namespace EasyCarryKatarina
 
             var target = TargetSelector.GetTarget(spells[Spells.Q].Range, TargetSelector.DamageType.Magical);
             if (target == null) return;
-            
+
             var useQ = _config.Item("combo.useQ").GetValue<bool>();
             var useW = _config.Item("combo.useW").GetValue<bool>();
             var useE = _config.Item("combo.useE").GetValue<bool>();
@@ -247,6 +247,7 @@ namespace EasyCarryKatarina
             var ultks = _config.Item("killsteal.ultks").GetValue<bool>();
             var mode = _config.Item("killsteal.mode").GetValue<StringList>().SelectedIndex;
             var waitformark = _config.Item("killsteal.procQ").GetValue<bool>();
+            var useward = _config.Item("killsteal.ward").GetValue<bool>();
 
             var aiHeroes = e as Obj_AI_Hero[] ?? e.ToArray();
 
@@ -291,7 +292,7 @@ namespace EasyCarryKatarina
             {
                 spells[Spells.Q].Cast(qtarget);
             }
-            else if (useq && qtarget != null && Player.Distance(qtarget) < spells[Spells.E].Range + spells[Spells.Q].Range && spells[Spells.Q].IsReady())
+            else if (useq && useward && qtarget != null && Player.Distance(qtarget) < spells[Spells.E].Range + spells[Spells.Q].Range && spells[Spells.Q].IsReady())
             {
                 WardJump(qtarget);
                 spells[Spells.Q].Cast(qtarget);
@@ -791,7 +792,7 @@ namespace EasyCarryKatarina
 
             var myPos = Player.ServerPosition;
             var targetPos = target.ServerPosition;
-            var delta = myPos - targetPos;
+            var delta = targetPos - myPos;
 
             delta.Normalize();
 
