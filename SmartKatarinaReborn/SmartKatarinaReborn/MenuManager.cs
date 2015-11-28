@@ -17,7 +17,7 @@ namespace SmartKatarinaReborn
         public static void OnLoad()
         {
             InitMenu();
-            L.Log("MenuManager initialized!", L.Type.Info);
+            L.Log("MenuManager initialized!");
         }
 
         private static void InitMenu()
@@ -26,7 +26,7 @@ namespace SmartKatarinaReborn
 
             var combo = new Menu("[SKR] Combo", "skr.combo");
             {
-                combo.AddItem(new MenuItem())
+                combo.AddItem(new MenuItem("combo.smart", "Use Smart System")).SetValue(true);
             }
         }
     }

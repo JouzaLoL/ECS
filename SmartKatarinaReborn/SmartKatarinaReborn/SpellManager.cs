@@ -32,7 +32,7 @@ namespace SmartKatarinaReborn
         {
             spells[Spells.Q].SetTargetted((float)0.3, 400);
             spells[Spells.R].SetCharged("KatarinaR", "KatarinaR", 550, 550, 1.0f);
-            L.Log("SpellManager initialized!", L.Type.Info);
+            L.Log("SpellManager initialized!");
         }
     }
 }
