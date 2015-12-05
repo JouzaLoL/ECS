@@ -83,16 +83,16 @@ namespace EasyCarryKatarina
 
             if (Player.IsDead) return;
 
-            if (Player.IsChannelingImportantSpell() && U.RHeroBlock())
-            {
-                _orbwalker.SetAttack(false);
-                _orbwalker.SetMovement(false);
-            }
-            else
-            {
-                _orbwalker.SetAttack(true);
-                _orbwalker.SetMovement(true);
-            }
+            //if (Player.IsChannelingImportantSpell() && U.RHeroBlock())
+            //{
+            //    _orbwalker.SetAttack(false);
+            //    _orbwalker.SetMovement(false);
+            //}
+            //else
+            //{
+            //    _orbwalker.SetAttack(true);
+            //    _orbwalker.SetMovement(true);
+            //}
 
             //Tick limiter
             if (_config.Item("misc.ticklimiter.enable").GetValue<bool>())
@@ -667,6 +667,7 @@ namespace EasyCarryKatarina
                 //misc.AddItem(new MenuItem("misc.skinchanger.id", "Select skin:").SetValue(new StringList(new[] {"Classic", "Mercenary", "Red Card", "Bilgewater", "Kitty Cat", "High Command", "Darude Sandstorm", "Slay Belle", "Warring Kingdoms"})));
                 misc.AddItem(new MenuItem("misc.ticklimiter.enable", "Enable Tick Limiter")).SetValue(true);
                 misc.AddItem(new MenuItem("misc.ticklimiter.amount", "TickLimiter amount")).SetValue(new Slider(100, 0, 500));
+                misc.AddItem(new MenuItem("misc.cancelkey", "Ultimate manual CANCEL Key")).SetValue(new KeyBind("G".ToCharArray()[0], KeyBindType.Press));
             }
             _config.AddSubMenu(misc);
 
@@ -749,7 +750,8 @@ namespace EasyCarryKatarina
         {
             if (sender.IsMe)
             {
-                args.Process = !(_rBlock && U.RHeroBlock());
+                if (Player.IsChannelingImportantSpell() && U.RHeroBlock() && _rBlock && !_config.Item("misc.cancelkey").GetValue<KeyBind>().Active)
+                    args.Process = false;
             }
         }
 

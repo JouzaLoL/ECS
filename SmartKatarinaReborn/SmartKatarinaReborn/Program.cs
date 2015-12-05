@@ -18,6 +18,8 @@ namespace SmartKatarinaReborn
 
         private static void OnLoad(EventArgs args)
         {
+            LogicManager.OnLoad();
+            MenuManager.OnLoad();
             SpellManager.OnLoad();
         }
     }

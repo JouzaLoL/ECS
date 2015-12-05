@@ -12,7 +12,7 @@ namespace SmartKatarinaReborn
 {
     internal class SpellManager
     {
-        private static readonly Dictionary<Spells, Spell> spells = new Dictionary<Spells, Spell>
+        public static readonly Dictionary<Spells, Spell> spells = new Dictionary<Spells, Spell>
         {
             { Spells.Q, new Spell(SpellSlot.Q, 675)},
             { Spells.W, new Spell(SpellSlot.W, 375)},
