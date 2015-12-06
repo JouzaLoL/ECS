@@ -65,7 +65,6 @@ namespace EasyCarryKatarina
             Game.OnUpdate += OnUpdate;
             Drawing.OnDraw += Drawings;
 
-            Obj_AI_Base.OnPlayAnimation += OnAnimation;
             Obj_AI_Base.OnIssueOrder += Obj_AI_Hero_OnIssueOrder;
             GameObject.OnCreate += GameObject_OnCreate;
 
