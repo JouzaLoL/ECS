@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Diagnostics;
 using LeagueSharp;
 using LeagueSharp.Common;
 using SharpDX;
@@ -22,9 +23,8 @@ namespace EasyCarryKatarina
         private static Spell _ignite;
         private static Items.Item _cutlass;
         private static Items.Item _hextech;
-        private static Items.Item _ludens;
         public static readonly Obj_AI_Hero Player = ObjectManager.Player;
-        private static bool _rBlock;
+        private static bool RBlock => spells[Spells.R].IsCharging && U.RHeroBlock();
         private static int _lastE;
         private static Vector3 _lastWardPos;
         private static int _lastPlaced;
@@ -59,7 +59,6 @@ namespace EasyCarryKatarina
 
             _cutlass = ItemData.Bilgewater_Cutlass.GetItem();
             _hextech = ItemData.Hextech_Gunblade.GetItem();
-            _ludens = ItemData.Ludens_Echo.GetItem();
 
             InitMenu();
 
@@ -79,20 +78,7 @@ namespace EasyCarryKatarina
 
         private static void OnUpdate(EventArgs args)
         {
-            //Player.SetSkin(Player.CharData.BaseSkinName, _config.Item("misc.skinchanger.enable").GetValue<bool>() ? _config.Item("misc.skinchanger.id").GetValue<StringList>().SelectedIndex : Player.BaseSkinId);
-
             if (Player.IsDead) return;
-
-            //if (Player.IsChannelingImportantSpell() && U.RHeroBlock())
-            //{
-            //    _orbwalker.SetAttack(false);
-            //    _orbwalker.SetMovement(false);
-            //}
-            //else
-            //{
-            //    _orbwalker.SetAttack(true);
-            //    _orbwalker.SetMovement(true);
-            //}
 
             //Tick limiter
             if (_config.Item("misc.ticklimiter.enable").GetValue<bool>())
@@ -130,27 +116,11 @@ namespace EasyCarryKatarina
 
             var killsteal = _config.Item("killsteal.enabled").GetValue<bool>();
             if (killsteal) Killsteal();
-
-            var resmananger = _config.Item("resmanager.enabled").GetValue<bool>();
-            if (resmananger) ResourceManager();
-        }
-
-        private static void ResourceManager()
-        {
-            if (Player.IsRecalling() || Player.InFountain()) return;
-            var hp = (Player.Health/Player.MaxHealth)*100;
-            var limit = _config.Item("resmanager.hp.slider").GetValue<Slider>().Value;
-            var counter = _config.Item("resmanager.counter").GetValue<bool>();
-            var potion = ItemData.Health_Potion.GetItem();
-
-            if (!potion.IsOwned(Player) || !potion.IsReady()) return;
-            if (hp < limit || (counter && Player.HasBuff("SummonerIgnite")))
-                potion.Cast();
         }
         
         private static void Combo()
         {
-            if (_rBlock && U.RHeroBlock()) return;
+            if (RBlock && U.RHeroBlock()) return;
 
             var target = TargetSelector.GetTarget(spells[Spells.Q].Range, TargetSelector.DamageType.Magical);
             if (target == null) return;
@@ -239,6 +209,7 @@ namespace EasyCarryKatarina
 
         private static void Killsteal()
         {
+            
             var e = HeroManager.Enemies.Where(x => x.IsVisible && x.IsValidTarget());
             var useq = _config.Item("killsteal.useQ").GetValue<bool>();
             var usew = _config.Item("killsteal.useW").GetValue<bool>();
@@ -251,7 +222,7 @@ namespace EasyCarryKatarina
 
             var aiHeroes = e as Obj_AI_Hero[] ?? e.ToArray();
 
-            if (_rBlock && ultks) //KSing while Ulting
+            if (RBlock && ultks) //KSing while Ulting
             {
                 var target = aiHeroes.FirstOrDefault(x => x.Health < spells[Spells.Q].GetDamage(x) + spells[Spells.W].GetDamage(x) + spells[Spells.E].GetDamage(x) - 50);
                 if (target != null && spells[Spells.Q].CanCast(target) && spells[Spells.W].IsReady() && spells[Spells.E].CanCast(target))
@@ -546,7 +517,7 @@ namespace EasyCarryKatarina
                 killsteal.AddItem(new MenuItem("killsteal.useW", "Use W")).SetValue(true);
                 killsteal.AddItem(new MenuItem("killsteal.useE", "Use E")).SetValue(true);
                 killsteal.AddItem(new MenuItem("killsteal.useI", "Use Ignite")).SetValue(true);
-                killsteal.AddItem(new MenuItem("killsteal.useward", "Use Ward")).SetValue(false);
+                killsteal.AddItem(new MenuItem("killsteal.ward", "Use Ward")).SetValue(false);
                 killsteal.AddItem(new MenuItem("placeholder", ""));
                 killsteal.AddItem(new MenuItem("killsteal.ultks", "KS when Ulting")).SetValue(true);
                 killsteal.AddItem(new MenuItem("killsteal.mode", "Ult KS Mode")).SetValue(new StringList(new[] {"EQW", "QEW"}));
@@ -715,7 +686,6 @@ namespace EasyCarryKatarina
 
             if (_cutlass.IsReady() && _cutlass.IsOwned(Player)) dmg += (float) Player.GetItemDamage(target, Damage.DamageItems.Bilgewater);
             if (_hextech.IsReady() && _hextech.IsOwned(Player)) dmg += (float) Player.GetItemDamage(target, Damage.DamageItems.Hexgun);
-            if (_ludens.IsOwned(Player) && Player.HasBuff("LudensEchoBuff")) dmg += (float)Player.GetItemDamage(target, Damage.DamageItems.Hexgun);
 
             if (_ignite.IsReady()) dmg += (float)Player.GetSummonerSpellDamage(target, Damage.SummonerSpell.Ignite);
             
@@ -732,25 +702,11 @@ namespace EasyCarryKatarina
 
         #region Ultimate Block
 
-        private static void OnAnimation(GameObject sender, GameObjectPlayAnimationEventArgs args)
-        {
-            if (!sender.IsMe) return;
-            if (args.Animation == "Spell4")
-            {
-                _rBlock = true;
-            }
-            else if (args.Animation == "Run" || args.Animation == "Idle1" || args.Animation == "Attack2" ||
-                     args.Animation == "Attack1")
-            {
-                _rBlock = false;
-            }
-        }
-
         private static void Obj_AI_Hero_OnIssueOrder(Obj_AI_Base sender, GameObjectIssueOrderEventArgs args)
         {
             if (sender.IsMe)
             {
-                if (Player.IsChannelingImportantSpell() && U.RHeroBlock() && _rBlock && !_config.Item("misc.cancelkey").GetValue<KeyBind>().Active)
+                if (RBlock && !_config.Item("misc.cancelkey").GetValue<KeyBind>().Active)
                     args.Process = false;
             }
         }
